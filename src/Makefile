@@ -9,7 +9,7 @@ all: $(OUT)
 
 #Link object file to create exe
 $(OUT): $(OBJ)
-	$(CC) $(OBJ) -o $(OUT) -lSDL2
+	$(CC) $(OBJ) -o $(OUT) -lSDL2 -lSDL2_image
 
 #Compile source file in obj file
 %.o: %.c

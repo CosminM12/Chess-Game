@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <stdbool.h>
 #include "RenderWindow.h"
 
@@ -34,6 +35,19 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
     SDL_RenderDrawRect(renderer, &board);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 }
+
+SDL_Texture* loadTexture(const char* p_filePath, SDL_Renderer** renderer) {
+    SDL_Texture* texture = NULL;
+    texture = IMG_LoadTexture(*renderer, p_filePath);
+    
+    if(texture == NULL) {
+        printf("Texture failed to load. Error: %s\n", SDL_GetError());
+    }
+
+    return texture;
+}
+
+
 
 void display(SDL_Renderer** renderer) {
     SDL_RenderPresent(*renderer);
