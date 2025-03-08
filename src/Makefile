@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -g
 SRC = main.c RenderWindow.c
 OBJ = $(SRC:.c=.o)
-OUT = ../program
+OUT = program
 
 #Default target
 all: $(OUT)

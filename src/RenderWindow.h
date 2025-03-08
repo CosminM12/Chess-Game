@@ -7,6 +7,8 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
 
 SDL_Texture* loadTexture(const char* p_filePath, SDL_Renderer** renderer);
 
+void render(SDL_Rect textureAtlas, int posx, int posy, SDL_Texture* tex, SDL_Renderer** renderer);
+
 void display(SDL_Renderer** renderer);
 
 void clear(SDL_Renderer** renderer);

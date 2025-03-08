@@ -48,6 +48,19 @@ SDL_Texture* loadTexture(const char* p_filePath, SDL_Renderer** renderer) {
 }
 
 
+void render(SDL_Rect textureAtlas, int posx, int posy, SDL_Texture* tex, SDL_Renderer** renderer) {
+    SDL_Rect src = textureAtlas;
+
+    SDL_Rect dst;
+    dst.x = posx;
+    dst.y = posy;
+    dst.w = 100;
+    dst.h = 100;
+
+    SDL_RenderCopy(*renderer, tex, &src, &dst);
+
+}
+
 
 void display(SDL_Renderer** renderer) {
     SDL_RenderPresent(*renderer);

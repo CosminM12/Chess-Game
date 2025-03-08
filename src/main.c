@@ -52,6 +52,8 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Program started successfully\n");
+    SDL_Texture* whitePawn = loadTexture("../res/Rook_black.png", &renderer);
+    SDL_Rect whitePawnAtlas = {0, 0, 60, 60};
 
     while(gameRunning) {
         clear(&renderer);
@@ -60,6 +62,7 @@ int main(int argc, char* argv[]) {
         //find deltaTime
         lastTick = currentTick;
         currentTick = SDL_GetPerformanceCounter();
+        render(whitePawnAtlas, 200, 0, whitePawn, &renderer);
         deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
 
         getEvents(event, &gameRunning);
