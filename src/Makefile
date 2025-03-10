@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -g
-SRC = main.c RenderWindow.c
+SRC = main.c RenderWindow.c Piece.c
 OBJ = $(SRC:.c=.o)
 OUT = program
 

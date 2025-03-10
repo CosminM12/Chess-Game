@@ -5,6 +5,7 @@
 #include <SDL2/SDL_image.h>
 
 #include "RenderWindow.h"
+#include "Piece.h"
 
 bool gameRunning = true;
 
@@ -14,7 +15,8 @@ SDL_Renderer* renderer = NULL;
 SDL_Color color_light = {240, 240, 240, 255};
 SDL_Color color_dark = {119, 149, 86, 255};
 
-int screenWidth=1200, screenHeight=800;
+const int screenWidth=1200, screenHeight=800;
+const int squareSize=100;
 
 Uint64 currentTick, lastTick;
 double deltaTime;
@@ -39,9 +41,20 @@ void getEvents(SDL_Event event, bool *gameRunning) {
 }
 
 
+void printfBoard(unsigned char board[8][8]) {
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            printf("%d ", (int)board[i][j]);
+        }
+        putchar('\n');
+    }
+    putchar('\n');
+}
 
 int main(int argc, char* argv[]) {
     SDL_Event event;
+    SDL_Texture* pieceTextures[2][7];
+    unsigned char board[8][8] = {0};
 
     currentTick = SDL_GetPerformanceCounter();
     bool SDLInit = init();
@@ -52,20 +65,29 @@ int main(int argc, char* argv[]) {
     }
 
     printf("Program started successfully\n");
-    SDL_Texture* whitePawn = loadTexture("../res/Rook_black.png", &renderer);
-    SDL_Rect whitePawnAtlas = {0, 0, 60, 60};
+    loadPieceTextures(pieceTextures, &renderer);
+    SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
+    char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
+    placePieces(board, input);
 
     while(gameRunning) {
-        clear(&renderer);
-        drawBoard(renderer, 100, screenWidth, color_light, color_dark);
-
+        
         //find deltaTime
         lastTick = currentTick;
         currentTick = SDL_GetPerformanceCounter();
-        render(whitePawnAtlas, 200, 0, whitePawn, &renderer);
         deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
-
+        
+        // printfBoard(board);
         getEvents(event, &gameRunning);
+
+        
+        clear(&renderer);
+        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark);
+        for(int row=0;row<8;row++) {
+            for(int col=0;col<8;col++) {
+                renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
+            }
+        } 
         display(&renderer);
 
     }

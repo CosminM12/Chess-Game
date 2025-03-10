@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
+
 #include "RenderWindow.h"
 
 bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** renderer, int screenWidth, int screenHeight) {
@@ -59,6 +60,18 @@ void render(SDL_Rect textureAtlas, int posx, int posy, SDL_Texture* tex, SDL_Ren
 
     SDL_RenderCopy(*renderer, tex, &src, &dst);
 
+}
+
+void renderPiece(SDL_Rect pieceAtlas, int boardOffset, int squareSize, int line, int col, SDL_Texture* tex, SDL_Renderer** renderer) {
+    SDL_Rect src = pieceAtlas;
+
+    SDL_Rect dst;
+    dst.x = boardOffset+col*squareSize;
+    dst.y = line*squareSize;
+    dst.w = squareSize;
+    dst.h = squareSize;
+
+    SDL_RenderCopy(*renderer, tex, &src, &dst);
 }
 
 
