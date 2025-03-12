@@ -37,7 +37,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
     int squareY = (int)(mouseY / squareSize);
 
     /*=================
-    bool vector maps
+    bool vector arrays
     mouseActions[]:
     0: mousePressed -----> click button is pressed
     1: mouseReleased -----> click button is released
@@ -105,39 +105,3 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         }
     }
 }
-    // bool pressed = mouseActions[0], released = mouseActions[1], dragging = mouseActions[2];
-    // // if((int)board[squareY][squareX] != 0) {
-    // //     board[squareY][squareX] = board[squareY][squareX] | (0x1 << 5);
-    // // }
-
-    // if(pressed) { //is mouse pressed
-    //     if((int)(board[squareY][squareX] != 0)) { //exists a piece where we pressed the mouse
-    //         if((*selectedSquare).x == -1 && (*selectedSquare).y == -1) { //no piece selected
-    //             (*selectedSquare).x = squareX;
-    //             (*selectedSquare).y = squareY;
-
-    //             board[squareY][squareX] = board[squareY][squareX] | (0x1 << 5); //select square
-    //         }
-    //         else if((*selectedSquare).x == squareX && (*selectedSquare).y == squareY) { //deselect piece
-    //             (*selectedSquare).x = -1.0f;
-    //             (*selectedSquare).y = -1.0f;
-
-    //             board[squareY][squareX] = board[squareY][squareX] & (~(0x1 << 5)); //deselect square
-    //         }
-    //         else {
-    //             //piece capturing
-
-    //         }
-    //     }
-    //     else {
-    //         if((*selectedSquare).x != -1 && (*selectedSquare).y != -1) { //move piece here
-    //             board[squareY][squareX] = board[(int)(*selectedSquare).y][(int)(*selectedSquare).x];
-    //             board[(int)(*selectedSquare).y][(int)(*selectedSquare).x] = board[(int)(*selectedSquare).y][(int)(*selectedSquare).x] & (~(0x1 << 5));
-    //         }
-    //     }
-    // }
-    // else if(released) {
-    //     if((*selectedSquare).x != -1 && (*selectedSquare).y != -1) {
-            
-    //     }
-    // }

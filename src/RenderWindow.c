@@ -5,8 +5,10 @@
 #include "RenderWindow.h"
 
 bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** renderer, int screenWidth, int screenHeight) {
+    //Create new window
     SDL_DisplayMode screenSize;
     SDL_GetCurrentDisplayMode(0, &screenSize);
+
     *window = SDL_CreateWindow(p_title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenWidth, screenHeight, SDL_WINDOW_SHOWN);
 
     if(*window == NULL) {
@@ -23,8 +25,10 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
     int boardOffset = (screenWidth - squareSize*8) / 2;
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
+
             SDL_Color currentColor = ((row + col) % 2 == 0) ? color1 : color2;
             int isClicked = board[row][col] & (0x1 << 5);
+
             if(isClicked) {
                 currentColor = colorClicked;
             }
@@ -35,6 +39,7 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
             SDL_RenderFillRect(renderer, &square);
         }
     }
+    
     SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
     SDL_Rect boardBorder = {boardOffset-1, -1, squareSize*8+2, squareSize*8+2};
     SDL_RenderDrawRect(renderer, &boardBorder);

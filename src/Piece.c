@@ -27,6 +27,13 @@ void loadPieceTextures(SDL_Texture* textures[2][7], SDL_Renderer** renderer) {
 
 SDL_Texture* getPieceTexture(SDL_Texture* textures[2][7], unsigned char piece) {
     //Piece type is saved on the last 3 bits of piece while the color is saved on the 4th and 5th bits
+    /*=================
+    (unsigned char) board map
+    1B -> (b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)
+    b6, b7, b8: Piece Type: 1-6
+    b4, b5: Piece Color (0x10 = white, 0x20 = black)
+    b3: is selected 
+    =================*/
     int pieceColor = (piece & 0x10) >> 4;
     int pieceType = piece & 0x7;
 
