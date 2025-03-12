@@ -6,6 +6,9 @@
 
 #include "RenderWindow.h"
 #include "Piece.h"
+#include "Events.h"
+#include "util.h"
+
 
 bool gameRunning = true;
 
@@ -14,6 +17,7 @@ SDL_Renderer* renderer = NULL;
 
 SDL_Color color_light = {240, 240, 240, 255};
 SDL_Color color_dark = {119, 149, 86, 255};
+SDL_Color color_clicked = {248, 255, 41, 145};
 
 const int screenWidth=1200, screenHeight=800;
 const int squareSize=100;
@@ -30,17 +34,6 @@ bool init() {
 }
 
 
-void getEvents(SDL_Event event, bool *gameRunning) {
-    while(SDL_PollEvent(&event)) {
-        switch(event.type) {
-            case SDL_QUIT:
-                *gameRunning = false;
-                break;
-        }
-    }
-}
-
-
 void printfBoard(unsigned char board[8][8]) {
     for(int i=0;i<8;i++) {
         for(int j=0;j<8;j++) {
@@ -54,11 +47,17 @@ void printfBoard(unsigned char board[8][8]) {
 int main(int argc, char* argv[]) {
     SDL_Event event;
     SDL_Texture* pieceTextures[2][7];
+
     unsigned char board[8][8] = {0};
+    //Each square has 1 bite(unsigned char) or 8 bits:
+    //Bits 6 to 8 (3 bits) know the type of piece on the square: 1=pawn, 2=bishop, 3=knight, 4=rook, 5=queen, 6=king
+    //Bits 4 and 5 (2 bits) know the color of the piece on the square: 1 on bit 5 is white (0x10), 1 on bit 4 is black (0x20)
+    //Bit 3 knows if the square is clicked on
 
     currentTick = SDL_GetPerformanceCounter();
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
+    Vector2f selectedSquare = createVector(-1.0f, -1.0f);
 
     if(!windowCreation || !SDLInit) {
         return -1;
@@ -69,20 +68,36 @@ int main(int argc, char* argv[]) {
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
     placePieces(board, input);
-
+    bool mouseActions[2] = {false, false};
+    /*
+    *pos0: mouseButtonDown (click button pressed)
+    *pos1: mouseButtonUp (click button released)
+    */
+    bool pieceActions[2] = {false, false}; 
+    /*
+    *pos0: isSelected(a piece is selected)
+    *pos1: isHoldingPiece (a piece is holded in "hand")
+    */
     while(gameRunning) {
         
         //find deltaTime
         lastTick = currentTick;
         currentTick = SDL_GetPerformanceCounter();
         deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
-        
         // printfBoard(board);
-        getEvents(event, &gameRunning);
 
+        int mouseX, mouseY;
+        getEvents(event, &gameRunning, mouseActions);
+        SDL_GetMouseState(&mouseX, &mouseY);
+        
+        if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
+            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &selectedSquare);
+            mouseActions[0] = false;
+            mouseActions[1] = false;
+        }
         
         clear(&renderer);
-        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark);
+        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, board);
         for(int row=0;row<8;row++) {
             for(int col=0;col<8;col++) {
                 renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
