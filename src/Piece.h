@@ -26,6 +26,8 @@ bool inBounds(int y);
 
 bool opposingColor(unsigned char piece, int color);
 
+void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy[], int color, int directions);
+
 void clearPossibleBoard(unsigned char board[8][8]);
 
 void generatePossibleMoves(unsigned char board[8][8], int x, int y);

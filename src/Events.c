@@ -132,6 +132,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             else {
                 if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
                     makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+                    clearPossibleBoard(board);
                 }
                 else {
                     deselectPiece(board, selectedSquare, pieceActions);

@@ -18,6 +18,7 @@ SDL_Renderer* renderer = NULL;
 SDL_Color color_light = {240, 240, 240, 255};
 SDL_Color color_dark = {119, 149, 86, 255};
 SDL_Color color_clicked = {248, 255, 41, 145};
+SDL_Color color_possible = {200, 20, 20, 255};
 
 const int screenWidth=1200, screenHeight=800;
 const int squareSize=100;
@@ -108,7 +109,7 @@ int main(int argc, char* argv[]) {
         
         //==========Render Visuals==========//
         clear(&renderer);
-        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, board);
+        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, board);
         for(int row=0;row<8;row++) {
             for(int col=0;col<8;col++) {
                 renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
