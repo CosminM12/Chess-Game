@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 #include "Events.h"
-// #include "util.h"
+#include "Piece.h"
 
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
     while(SDL_PollEvent(&event)) {
@@ -30,6 +30,53 @@ bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
     return boardOffset < mouseX  && mouseX < (screenWidth - boardOffset);
 }
 
+void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare) {
+    //toggle active: hold and select
+    pieceActions[0] = true;
+    pieceActions[1] = true;
+
+    //change square to selected
+    board[squareY][squareX] |= SELECTED_MASK;
+
+    //save selected square coords
+    (*selectedSquare).x = squareX;
+    (*selectedSquare).y = squareY;
+}
+
+void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[]) {
+    int oldX = (*sourceSquare).x;
+    int oldY = (*sourceSquare).y;
+
+    //copy piece to new location (only last 5 bits);
+    board[destY][destX] = (board[oldY][oldX] & 0x1F);
+    
+    //delete from old position
+    board[oldY][oldX] = 0;
+
+    //delte selected square
+    (*sourceSquare).x = -1.0f;
+    (*sourceSquare).y = -1.0f;
+
+    pieceActions[0] = false;
+    pieceActions[1] = false;
+}
+
+void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]) {
+    int oldX = (*selectedSquare).x;
+    int oldY = (*selectedSquare).y;
+
+    //deselect piece
+    board[oldY][oldX] &= (~SELECTED_MASK);
+
+    //delete selected sqaure
+    (*selectedSquare).x = -1.0f;;
+    (*selectedSquare).y = -1.0f;
+
+    pieceActions[0] = false;
+    pieceActions[1] = false;
+}
+
+
 void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], Vector2f* selectedSquare) {
     //Get square from mouse cursor
     int boardOffset = (screenWidth - (8 * squareSize)) / 2;
@@ -47,61 +94,60 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
     1: pieceHolding ----> piece is holded with mouse click and follows the cursor
     =================*/
 
-    if(mouseActions[0]) { //if mouse clicked
-        if(!pieceActions[0]) { //if there is no selected piece
+    if(mouseActions[0]) { //MOUSE CLICKED
+        //NO SELECTED PIECE => SELECT
+        if(!pieceActions[0]) {
             if(board[squareY][squareX] != 0) {
-                pieceActions[0] = true;
-                pieceActions[1] = true;
+                selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
 
-                //change square to be selected
-                board[squareY][squareX] = board[squareY][squareX] | (0x1 << 5);
-                (*selectedSquare).x = squareX;
-                (*selectedSquare).y = squareY;
+                generatePossibleMoves(board, squareY, squareX);
             }
         }
+        //A SELECTED PIECE  => TRY TO MOVE
         else {
-            //if valid move, then move
-            if(board[squareY][squareX] == 0) {
-                int oldX = (*selectedSquare).x;
-                int oldY = (*selectedSquare).y;
-                board[squareY][squareX] = board[oldY][oldX]  & (~(0x1 << 5)); //move piece to new pos + deselect
-                board[oldY][oldX] = 0;
 
-                (*selectedSquare).x = -1.0f;
-                (*selectedSquare).y = -1.0f;
-                pieceActions[0] = false;
-                pieceActions[1] = false;
+            //VALID MOVE => MOVE PIECE
+            if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                makeMove(board, squareX, squareY, selectedSquare, pieceActions);
             }
-            else { //either capture or cancel select 
-                /*if capture to be inserted*/
-                //else:
-                int oldX = (*selectedSquare).x;
-                int oldY = (*selectedSquare).y;
-                board[oldY][oldX] = board[oldY][oldX] & (~(0x1 << 5));
-                (*selectedSquare).x = -1.0f;
-                (*selectedSquare).y = -1.0f;
-                pieceActions[0] = false;
-                pieceActions[1] = false;
+
+            //NOT VALID => CANCEL SELECT
+            else { 
+               // deselectPiece(board, selectedSquare, pieceActions);
+                //clearPossibleBoard(board);
             }
         }
     }
-    else if(mouseActions[1]) { //mouse released
-        if(pieceActions[1]) { //piece holding
+    else if(mouseActions[1]) { //MOUSE RELEASED
+    
+        //HOLDING PIECE
+        if(pieceActions[1]) {
+
+            //dest=src => STOP HOLD
             if(squareX == (*selectedSquare).x && squareY == (*selectedSquare).y) {
                 pieceActions[1] = false;
             }
+
+            //different dest => MOVE or DESELECT
             else {
-                if(board[squareY][squareX] == 0) {
-                    int oldX = (*selectedSquare).x;
-                    int oldY = (*selectedSquare).y;
-                    board[squareY][squareX] = board[oldY][oldX] & (~(0x1 << 5)); //move piece to new pos + deselect
-                    board[oldY][oldX] = 0;
+                if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                    makeMove(board,squareX, squareY, selectedSquare, pieceActions);
                 }
-                (*selectedSquare).x = -1.0f;
-                (*selectedSquare).y = -1.0f;
-                pieceActions[0] = false;
-                pieceActions[1] = false;
+                else {
+                    deselectPiece(board, selectedSquare, pieceActions);
+                    clearPossibleBoard(board);
+                }
             }
+        }
+        //NOT HOLDING => 
+        else {
+          if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+            makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+            }
+            else {
+                deselectPiece(board, selectedSquare, pieceActions);
+                clearPossibleBoard(board);
+            }  
         }
     }
 }

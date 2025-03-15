@@ -23,23 +23,32 @@ bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** render
 
 void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, unsigned char board[8][8]) {
     int boardOffset = (screenWidth - squareSize*8) / 2;
+    SDL_Color possibleColor = {220, 0, 0, 255};
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
 
+            // printf("0x%X ", board[row][col]);
             SDL_Color currentColor = ((row + col) % 2 == 0) ? color1 : color2;
             int isClicked = board[row][col] & (0x1 << 5);
+            int isPossible = board[row][col] & 0x40;
 
             if(isClicked) {
                 currentColor = colorClicked;
+            }
+            else if(isPossible) {
+                currentColor = possibleColor;
             }
 
             SDL_SetRenderDrawColor(renderer, currentColor.r, currentColor.g, currentColor.b, currentColor.a);
 
             SDL_Rect square = {boardOffset + col * squareSize, row * squareSize, squareSize, squareSize};
             SDL_RenderFillRect(renderer, &square);
+
         }
+        // putchar('\n');
     }
-    
+    // putchar('\n');
+
     SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
     SDL_Rect boardBorder = {boardOffset-1, -1, squareSize*8+2, squareSize*8+2};
     SDL_RenderDrawRect(renderer, &boardBorder);
