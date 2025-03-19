@@ -92,6 +92,7 @@ void placePieces(unsigned char board[8][8], char* startPosition) {
     }
 }
 
+
 //Checks if calc position is on board
 bool inBounds(int var) {
     return -1 < var && var < 8; 
@@ -190,18 +191,6 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y) {
             break;
         case KNIGHT:
             //Possible knight moves
-            // int moves[8][2] = {{-2,-1}, {-2,1}, {2, -1}, {2, 1}, {-1, -2}, {-1, 2}, {1, -2}, {1, 2}};
-
-            // for(int k=0;k<8;k++) {
-            //     int newX = x + moves[k][0];
-            //     int newY = y + moves[k][1];
-
-            //     if(inBounds(newX) && inBounds(newY)) {
-            //         if(board[newX][newY] == 0 || opposingColor(board[newX][newY], color)) {
-            //             board[newX][newY] |=  MOVABLE_MASK;
-            //         }
-            //     }
-            // }
             int jumpDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
             int jumpDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
             generateStepMoves(board, x, y, jumpDX, jumpDY, color, 8);

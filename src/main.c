@@ -79,11 +79,13 @@ int main(int argc, char* argv[]) {
     *pos1: isHoldingPiece (a piece is holded in "hand")
     */
 
+    bool blackTurn = false; //remember who's player is the turn
     SDL_Event event;
     SDL_Texture* pieceTextures[2][7];
     Vector2f selectedSquare = createVector(-1.0f, -1.0f);
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     int mouseX, mouseY;
+    bool kingCanCastle = true;
 
     //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
@@ -102,7 +104,7 @@ int main(int argc, char* argv[]) {
         SDL_GetMouseState(&mouseX, &mouseY);
         
         if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
-            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &selectedSquare);
+            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare);
             mouseActions[0] = false;
             mouseActions[1] = false;
         }

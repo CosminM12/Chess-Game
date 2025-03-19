@@ -77,7 +77,7 @@ void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pie
 }
 
 
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], Vector2f* selectedSquare) {
+void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare) {
     //Get square from mouse cursor
     int boardOffset = (screenWidth - (8 * squareSize)) / 2;
     int squareX = (int)((mouseX - boardOffset) / squareSize);
@@ -97,7 +97,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
     if(mouseActions[0]) { //MOUSE CLICKED
         //NO SELECTED PIECE => SELECT
         if(!pieceActions[0]) {
-            if(board[squareY][squareX] != 0) {
+            if(board[squareY][squareX] != 0 && !opposingColor(board[squareY][squareX], *blackTurn)) {
                 selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
 
                 generatePossibleMoves(board, squareY, squareX);
@@ -109,6 +109,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             //VALID MOVE => MOVE PIECE
             if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
                 makeMove(board, squareX, squareY, selectedSquare, pieceActions);
+                *blackTurn = !(*blackTurn);
             }
 
             //NOT VALID => CANCEL SELECT
@@ -132,6 +133,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             else {
                 if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
                     makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+                    *blackTurn = !(*blackTurn);
                     clearPossibleBoard(board);
                 }
                 else {
@@ -144,6 +146,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         else {
           if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
             makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+            *blackTurn = !(*blackTurn);
             }
             else {
                 deselectPiece(board, selectedSquare, pieceActions);
