@@ -8,6 +8,11 @@
 #include "RenderWindow.h"
 
 
+/*
+==========================
+=INITIALIZATION FUNCTIONS=
+==========================
+*/
 void loadPieceTextures(SDL_Texture* textures[2][7], SDL_Renderer** renderer) {
     textures[0][0] = NULL;
     textures[0][1] = loadTexture("../res/Pawn_white.png", renderer);
@@ -35,7 +40,7 @@ SDL_Texture* getPieceTexture(SDL_Texture* textures[2][7], unsigned char piece) {
     b4, b5: Piece Color (0x10 = white, 0x20 = black)
     b3: is selected 
     =================*/
-    int pieceColor = (piece & 0x10) >> 4;
+    int pieceColor = (piece & COLOR_MASK) >> 4;
     int pieceType = piece & TYPE_MASK;
 
     return textures[pieceColor][pieceType];
@@ -57,8 +62,7 @@ void placePieces(unsigned char board[8][8], char* startPosition) {
         else {
             unsigned char piece = 0;
             //get the color (4th and 5th bits)
-            piece = isupper(c) ? BLACK : WHITE;
-
+            piece = isupper(c) ? COLOR_MASK : 0;
             //get the type (last 3 bits)
             c = tolower(c);
             switch(c) {
@@ -92,6 +96,98 @@ void placePieces(unsigned char board[8][8], char* startPosition) {
     }
 }
 
+void exportPosition(unsigned char board[8][8], char **exportString) {
+    *exportString = malloc(73*sizeof(char)); //maximum 8x8 + 8 row-limiters + \0 = 73
+    int numOfEmptySpaces = 0, cnt = 0;
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            unsigned char piece = board[i][j] & TYPE_MASK;
+            unsigned char color = board[i][j] & COLOR_MASK;
+            if(piece == NONE) {
+                numOfEmptySpaces++;
+            }
+            else {
+                if(numOfEmptySpaces != 0) {
+                    (*exportString)[cnt++] = (char)(numOfEmptySpaces + '0');
+                    numOfEmptySpaces = 0;
+                }
+                switch(piece) {
+                    case PAWN:
+                        (*exportString)[cnt++] = 'p'; 
+                        break;
+                    case BISHOP:
+                        (*exportString)[cnt++] = 'b';
+                        break;
+                    case KNIGHT:
+                        (*exportString)[cnt++] = 'n';
+                        break;
+                    case ROOK:
+                        (*exportString)[cnt++] = 'r';
+                        break;
+                    case QUEEN:
+                        (*exportString)[cnt++] = 'q';
+                        break;
+                    case KING:
+                        (*exportString)[cnt++] = 'k';
+                        break;
+                    default:
+                        (*exportString) = NULL;
+                        return;
+                }
+                if(color != 0) {
+                    (*exportString)[cnt-1] = toupper((*exportString)[cnt-1]);
+                }
+            }
+        }
+        if(i<7) {
+            (*exportString)[cnt++] = '/';
+            numOfEmptySpaces = 0;
+        }
+    }
+    exportString[cnt] = '\0';
+}
+
+void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
+    int foundKings = 0;
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            if((board[i][j] & TYPE_MASK) == KING) {
+                board[i][j] |= MODIFIER; //Initialize ability to castle
+
+                foundKings++;
+                unsigned int color = (board[i][j] & COLOR_MASK) >> 4;
+                
+                kingsPositions[color].x = i;
+                kingsPositions[color].y = j;
+                
+                if(foundKings == 2) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+/*
+==========================
+=       CHECKERS         =
+==========================
+*/
+bool isCheck(unsigned char board[8][8], int kingX, int kingY, Vector2f *lastDoublePawn) {
+    unsigned char auxBoard[8][8];
+    
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            auxBoard[i][j] = board[i][j];
+        }
+    }
+
+    unsigned char opposingColor = (board[kingX][kingY] & COLOR_MASK) ^ COLOR_MASK;
+    // printf("For color 0x%X\n", opposingColor);
+    generateAllPossibleMoves(auxBoard, opposingColor, lastDoublePawn);
+
+    return (auxBoard[kingX][kingY] & MOVABLE_MASK) == MOVABLE_MASK;
+}
 
 //Checks if calc position is on board
 bool inBounds(int var) {
@@ -100,9 +196,15 @@ bool inBounds(int var) {
 
 //Checks if piece is of another color
 bool opposingColor(unsigned char piece, int color) {
-    return ((piece & 0x10) >> 4) != color;
+    return ((piece & COLOR_MASK) >> 4) != color;
 }
 
+
+/*
+==========================
+=    MOVE GENERATION     =
+==========================
+*/
 void generateStepMoves(unsigned char board[8][8], int x, int y, int dx[], int dy[], int color, int directions) {
     for(int k=0;k<directions;k++) {
         int newX = x + dx[k];
@@ -146,6 +248,16 @@ void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
     }
 }
 
+void generateAllPossibleMoves(unsigned char board[8][8], unsigned char color, Vector2f *lastDoublePawn) {
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            if((board[i][j] & TYPE_MASK) != 0 && (board[i][j] & COLOR_MASK) == color) {
+                generatePossibleMoves(board, i, j, lastDoublePawn);
+            }
+        }
+    }
+}
+
 //Removes all possible set moves
 void clearPossibleBoard(unsigned char board[8][8]) {
     for(int i=0;i<8;i++) {
@@ -155,36 +267,55 @@ void clearPossibleBoard(unsigned char board[8][8]) {
     }
 }
 
-void generatePossibleMoves(unsigned char board[8][8], int x, int y) {
+void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *lastDoublePawn) {
     clearPossibleBoard(board);
     
-    int type = board[x][y] & TYPE_MASK;
-    int color = (board[x][y] & 0x10) >> 4;
+    unsigned int type = board[x][y] & TYPE_MASK;
+    unsigned int color = (board[x][y] & COLOR_MASK) >> 4;
     //color is 1 if piece is black, 0 if its white
 
     switch(type) {
         case PAWN:
-            int direction = (color == 1) ? 1 : -1;
+            //------Single step movement------
+
             //if dir is 1 -> piece is black => move down
             //if dir is 0 -> piece is white => move up
+            int direction = (color == 1) ? 1 : -1;
             int newX = x+direction;
+            
             //I.Move forward
-            if((board[newX][y] & 0x7) == 0) {
+            if((board[newX][y] & TYPE_MASK) == 0) {
                 board[newX][y] |=  MOVABLE_MASK;
             }
 
-            //II.Capture (diagonally)
-            int newY = y-1;
-            if(inBounds(newY)) {
-                if(board[newX][newY] != 0 && opposingColor(board[newX][newY], color)) {
+            //II.Capture (diagonally) + En passant
+            int dy[2] = {-1, 1};
+            int newY;
+            for(int i=0;i<2;i++) {
+                newY = y + dy[i];
+                if(inBounds(newY)) {
+                    if(board[newX][newY] != 0 && opposingColor(board[newX][newY], color)) {
+                        board[newX][newY] |= MOVABLE_MASK;
+                    }
+                }
+            }
+
+
+            //------En passant------
+            for(int i=0;i<2;i++) {
+                newY = y + dy[i];
+                if((board[x][newY] & TYPE_MASK) == PAWN && x == (int)(*lastDoublePawn).y && newY == (int)(*lastDoublePawn).x && opposingColor(board[x][newY], color)) {
                     board[newX][newY] |= MOVABLE_MASK;
                 }
             }
 
-            newY = y+1;
-            if(inBounds(newY)) {
-                if(board[newX][newY] != 0 && opposingColor(board[newX][newY], color)) {
-                    board[newX][newY] |= MOVABLE_MASK;
+
+            //------Double pawn push------
+            if((board[x][y] & MODIFIER) == 0) { //pawn hasn't moved
+                newX = x + 2*direction;
+
+                if((board[newX][y] & TYPE_MASK) == 0 && (board[newX-direction][y] & TYPE_MASK) == 0) { //no piece on route
+                    board[newX][y] |= MOVABLE_MASK;
                 }
             }
 
@@ -195,21 +326,25 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y) {
             int jumpDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
             generateStepMoves(board, x, y, jumpDX, jumpDY, color, 8);
             break;
+            
         case BISHOP:
             int diagDX[4] = {-1, -1,  1, 1};
             int diagDY[4] = {-1,  1, -1, 1};
             generateLongMoves(board, x, y, diagDX, diagDY, color, 4);
             break;
+
         case ROOK:
             int linesDX[4] = {-1,  1,  0,  0};
             int linesDY[4] = { 0,  0,  1, -1};
             generateLongMoves(board, x, y, linesDX, linesDY, color, 4);
             break;
+
         case QUEEN:
             int queenDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
             int queenDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
             generateLongMoves(board, x, y, queenDX, queenDY, color, 8);
             break;
+
         case KING:
             int kingDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
             int kingDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};

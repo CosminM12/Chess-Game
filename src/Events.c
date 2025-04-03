@@ -1,9 +1,11 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include "Events.h"
 #include "Piece.h"
+
 
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
     while(SDL_PollEvent(&event)) {
@@ -43,13 +45,43 @@ void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pie
     (*selectedSquare).y = squareY;
 }
 
-void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[]) {
+void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     int oldX = (*sourceSquare).x;
     int oldY = (*sourceSquare).y;
+
+    //check if any piece is captured
+    bool capture = (board[destY][destX] & TYPE_MASK) != 0;
 
     //copy piece to new location (only last 5 bits);
     board[destY][destX] = (board[oldY][oldX] & 0x1F);
     
+    //---Handle pawn special moves---
+    if((board[destY][destX] & TYPE_MASK) == PAWN) {
+
+        //Set modifier (pawn can't double push anymore) 
+        board[destY][destX] |= MODIFIER;
+
+        
+        //double pawn push =>  remember for 'En passant'
+        if(abs(destY - oldY) == 2) {
+            (*lastDoublePawn).x = destX;
+            (*lastDoublePawn).y = destY;
+        }
+        else {
+            int lastDoubleX = (*lastDoublePawn).x;
+            int lastDoubleY = (*lastDoublePawn).y;
+            
+            //En passant => delete captured piece
+            if(!capture && abs(destX - oldX) == 1) {
+                board[lastDoubleY][lastDoubleX] = 0;
+            }
+
+            //remove last double pawn
+            (*lastDoublePawn).x = -1.0f;
+            (*lastDoublePawn).y = -1.0f;
+        }
+    }
+
     //delete from old position
     board[oldY][oldX] = 0;
 
@@ -59,6 +91,11 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
 
     pieceActions[0] = false;
     pieceActions[1] = false;
+
+    unsigned int kingColor = (board[destY][destX] & COLOR_MASK) >> 4;
+    if(isCheck(board, kingsPositions[kingColor].x, kingsPositions[kingColor].y, lastDoublePawn)) {
+        printf("In check\n");
+    }
 }
 
 void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]) {
@@ -76,8 +113,7 @@ void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pie
     pieceActions[1] = false;
 }
 
-
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare) {
+void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     //Get square from mouse cursor
     int boardOffset = (screenWidth - (8 * squareSize)) / 2;
     int squareX = (int)((mouseX - boardOffset) / squareSize);
@@ -100,7 +136,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             if(board[squareY][squareX] != 0 && !opposingColor(board[squareY][squareX], *blackTurn)) {
                 selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
 
-                generatePossibleMoves(board, squareY, squareX);
+                generatePossibleMoves(board, squareY, squareX, lastDoublePawn);
             }
         }
         //A SELECTED PIECE  => TRY TO MOVE
@@ -108,8 +144,9 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
 
             //VALID MOVE => MOVE PIECE
             if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                makeMove(board, squareX, squareY, selectedSquare, pieceActions);
+                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
                 *blackTurn = !(*blackTurn);
+                clearPossibleBoard(board);
             }
 
             //NOT VALID => CANCEL SELECT
@@ -132,7 +169,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             //different dest => MOVE or DESELECT
             else {
                 if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+                    makeMove(board,squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
                     *blackTurn = !(*blackTurn);
                     clearPossibleBoard(board);
                 }
@@ -145,7 +182,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         //NOT HOLDING => 
         else {
           if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-            makeMove(board,squareX, squareY, selectedSquare, pieceActions);
+            makeMove(board,squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
             *blackTurn = !(*blackTurn);
             }
             else {

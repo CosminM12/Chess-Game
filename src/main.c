@@ -83,15 +83,17 @@ int main(int argc, char* argv[]) {
     SDL_Event event;
     SDL_Texture* pieceTextures[2][7];
     Vector2f selectedSquare = createVector(-1.0f, -1.0f);
+    Vector2f kingsPositions[2];
+    Vector2f lastDoublePushPawn = createVector(-1.0f, -1.0f);
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     int mouseX, mouseY;
-    bool kingCanCastle = true;
 
     //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
     placePieces(board, input);
-
+    findKings(board, kingsPositions); //Initialize kings positions
+    
     while(gameRunning) {
         //==========Find time variables==========//
         lastTick = currentTick;
@@ -104,7 +106,7 @@ int main(int argc, char* argv[]) {
         SDL_GetMouseState(&mouseX, &mouseY);
         
         if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
-            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare);
+            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare, &lastDoublePushPawn, kingsPositions);
             mouseActions[0] = false;
             mouseActions[1] = false;
         }
@@ -119,6 +121,16 @@ int main(int argc, char* argv[]) {
         } 
         display(&renderer);
 
+    }
+
+    char *exportString = NULL;
+
+    exportPosition(board, &exportString);
+    if(exportString == NULL) {
+        printf("Error exporting position!\n");
+    }
+    else {
+        printf("%s\n", exportString);
     }
 
     cleanUp(window);
