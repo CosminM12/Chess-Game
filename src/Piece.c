@@ -1,3 +1,4 @@
+// bafta
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
@@ -66,9 +67,10 @@ void placePieces(unsigned char board[8][8], char* startPosition) {
             //get the type (last 3 bits)
             c = tolower(c);
             switch(c) {
-                case 'p':
+                case 'p': {
                     piece = piece | PAWN;
                     break;
+                }
                 case 'b':
                     piece = piece | BISHOP;
                     break;
@@ -370,26 +372,26 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
     //color is 1 if piece is black, 0 if its white
 
     switch(type) {
-        case PAWN:
+        case PAWN: {
             //------Single step movement------
 
             //if dir is 1 -> piece is black => move down
             //if dir is 0 -> piece is white => move up
             int direction = (color == 1) ? 1 : -1;
-            int newX = x+direction;
-            
+            int newX = x + direction;
+
             //I.Move forward
-            if((board[newX][y] & TYPE_MASK) == 0) {
-                board[newX][y] |=  MOVABLE_MASK;
+            if ((board[newX][y] & TYPE_MASK) == 0) {
+                board[newX][y] |= MOVABLE_MASK;
             }
 
             //II.Capture (diagonally) + En passant
             int dy[2] = {-1, 1};
             int newY;
-            for(int i=0;i<2;i++) {
+            for (int i = 0; i < 2; i++) {
                 newY = y + dy[i];
-                if(inBounds(newY)) {
-                    if(board[newX][newY] != 0 && opposingColor(board[newX][newY], color)) {
+                if (inBounds(newY)) {
+                    if (board[newX][newY] != 0 && opposingColor(board[newX][newY], color)) {
                         board[newX][newY] |= MOVABLE_MASK;
                     }
                 }
@@ -397,53 +399,61 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
 
 
             //------En passant------
-            for(int i=0;i<2;i++) {
+            for (int i = 0; i < 2; i++) {
                 newY = y + dy[i];
-                if((board[x][newY] & TYPE_MASK) == PAWN && x == (int)(*lastDoublePawn).y && newY == (int)(*lastDoublePawn).x && opposingColor(board[x][newY], color)) {
+                if ((board[x][newY] & TYPE_MASK) == PAWN && x == (int) (*lastDoublePawn).y &&
+                    newY == (int) (*lastDoublePawn).x && opposingColor(board[x][newY], color)) {
                     board[newX][newY] |= MOVABLE_MASK;
                 }
             }
 
 
             //------Double pawn push------
-            if((board[x][y] & MODIFIER) == 0) { //pawn hasn't moved
-                newX = x + 2*direction;
+            if ((board[x][y] & MODIFIER) == 0) { //pawn hasn't moved
+                newX = x + 2 * direction;
 
-                if((board[newX][y] & TYPE_MASK) == 0 && (board[newX-direction][y] & TYPE_MASK) == 0) { //no piece on route
+                if ((board[newX][y] & TYPE_MASK) == 0 &&
+                    (board[newX - direction][y] & TYPE_MASK) == 0) { //no piece on route
                     board[newX][y] |= MOVABLE_MASK;
                 }
             }
 
             break;
-        case KNIGHT:
+        }
+        case KNIGHT: {
             //Possible knight moves
-            int jumpDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
-            int jumpDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
+            int jumpDX[8] = {-2, -2, -1, -1, 1, 1, 2, 2};
+            int jumpDY[8] = {-1, 1, -2, 2, -2, 2, -1, 1};
             generateStepMoves(board, x, y, jumpDX, jumpDY, color, 8);
             break;
+        }
             
-        case BISHOP:
-            int diagDX[4] = {-1, -1,  1, 1};
-            int diagDY[4] = {-1,  1, -1, 1};
+        case BISHOP: {
+            int diagDX[4] = {-1, -1, 1, 1};
+            int diagDY[4] = {-1, 1, -1, 1};
             generateLongMoves(board, x, y, diagDX, diagDY, color, 4);
             break;
+        }
 
-        case ROOK:
-            int linesDX[4] = {-1,  1,  0,  0};
-            int linesDY[4] = { 0,  0,  1, -1};
+        case ROOK: {
+            int linesDX[4] = {-1, 1, 0, 0};
+            int linesDY[4] = {0, 0, 1, -1};
             generateLongMoves(board, x, y, linesDX, linesDY, color, 4);
             break;
+        }
 
-        case QUEEN:
-            int queenDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
-            int queenDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
+        case QUEEN: {
+            int queenDX[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
+            int queenDY[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
             generateLongMoves(board, x, y, queenDX, queenDY, color, 8);
             break;
+        }
 
-        case KING:
-            int kingDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
-            int kingDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
+        case KING: {
+            int kingDX[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
+            int kingDY[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
             generateStepMoves(board, x, y, kingDX, kingDY, color, 8);
             break;
+        }
     }
 }
