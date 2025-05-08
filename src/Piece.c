@@ -173,20 +173,115 @@ void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
 =       CHECKERS         =
 ==========================
 */
-bool isCheck(unsigned char board[8][8], int kingX, int kingY, Vector2f *lastDoublePawn) {
-    unsigned char auxBoard[8][8];
-    
-    for(int i=0;i<8;i++) {
-        for(int j=0;j<8;j++) {
-            auxBoard[i][j] = board[i][j];
+bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
+    int kingX = kingPosition.x;
+    int kingY = kingPosition.y;
+
+    unsigned char color = (board[kingX][kingY] & COLOR_MASK) >> 4;
+    unsigned char enemyColor = (board[kingX][kingY] & COLOR_MASK) ^ COLOR_MASK;
+    printf("Color: 0x%X, enemyColor: 0x%X\n", color, enemyColor);
+
+    int pawnDY[2] = {-1, 1};
+
+    int knightDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
+    int knightDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
+
+    int diagDX[4] = {-1, -1,  1,  1};
+    int diagDY[4] = {-1,  1, -1,  1};
+
+    int lineDX[4] = {-1,  0,  0,  1};
+    int lineDY[4] = { 0, -1,  1,  0};
+
+    int newX, newY;
+    unsigned char pieceType;
+
+    //I. Pawn threat
+    int direction = (enemyColor == 1) ? -1 : 1;
+    newX = kingX + direction;
+    if(inBounds(newX)) {
+        for(int i=0;i<2;i++) {
+            newY = kingY + pawnDY[i];
+            if(inBounds(newY)) {
+                if((board[newX][newY] & TYPE_MASK) == PAWN && (board[newX][newY] & COLOR_MASK) == enemyColor) {
+                    printf("Dir=%d, dy[i]=%d\n", direction, pawnDY[i]);
+                    printf("\nPawn threat(%d, %d): ", newX, newY);
+                    return true;
+                }
+            }
         }
     }
 
-    unsigned char opposingColor = (board[kingX][kingY] & COLOR_MASK) ^ COLOR_MASK;
-    // printf("For color 0x%X\n", opposingColor);
-    generateAllPossibleMoves(auxBoard, opposingColor, lastDoublePawn);
+    //II. Knight threat
+    for(int i=0;i<8;i++) {
+        newX = kingX + knightDX[i];
+        newY = kingY + knightDY[i];
+        if(inBounds(newX) && inBounds(newY)) {
+            if((board[newX][newY] & TYPE_MASK) == KNIGHT && (board[newX][newY] & COLOR_MASK) == enemyColor) {
+                printf("\nKnight threat: ");
+                return true;
+            }
+        }
+    }
 
-    return (auxBoard[kingX][kingY] & MOVABLE_MASK) == MOVABLE_MASK;
+    //III. Diagonal threat (bishop / queen)
+    for(int i=0;i<4;i++) {
+        newX = kingX + diagDX[i];
+        newY = kingY + diagDY[i];
+
+        while(inBounds(newX) && inBounds(newY)) {
+            pieceType = board[newX][newY] & TYPE_MASK;
+            if(pieceType != 0) {
+                if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == BISHOP || pieceType == QUEEN)) {
+                    printf("\nDiagonal threat: ");
+                    return true;
+                }
+                
+                //exit if there is another piece on diagonal
+                break;
+            }
+
+            newX += diagDX[i];
+            newY += diagDY[i];
+        }
+    }
+
+    //IV. Line threats (rook / queen)
+    for(int i=0;i<4;i++) {
+        newX = kingX + lineDX[i];
+        newY = kingY + lineDY[i];
+
+        while(inBounds(newX) && inBounds(newY)) {
+            pieceType = board[newX][newY] & TYPE_MASK;
+            if(pieceType != 0) {
+                if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == ROOK || pieceType == QUEEN)) {
+                    printf("\nLine threat(%d, %d): ", newX, newY);
+                    return true;
+                }
+
+                //exit if there is another piece on line
+                break;
+            }
+
+            newX += lineDX[i];
+            newY += lineDY[i];
+        }
+    }
+
+    //V. King threat (for possible moves)
+    for(int dx=-1;dx<2;dx++) {
+        for(int dy=-1;dy<2;dy++) {
+            newX = kingX + dx;
+            newY = kingY + dy;
+            if(inBounds(newX) && inBounds(newY)) {
+                if((board[newX][newY] & TYPE_MASK) == KING && (board[newX][newY] & COLOR_MASK) == enemyColor) {
+                    printf("\nKing threat: ");
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 //Checks if calc position is on board

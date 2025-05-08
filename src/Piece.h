@@ -18,7 +18,7 @@ King: remembers if a check has occured (for castling)
 ==========*/
 
 #define TYPE_MASK 0x7
-#define COLOR_MASK 0x10
+#define COLOR_MASK 0x10  //0 = white, 1 = black
 
 #define SELECTED_MASK 0x20
 #define MOVABLE_MASK 0x40
@@ -33,7 +33,7 @@ void exportPosition(unsigned char board[8][8], char **exportString);
 
 void findKings(unsigned char board[8][8], Vector2f kingsPositions[]);
 
-bool isCheck(unsigned char board[8][8], int kingX, int kingY, Vector2f *lastDoublePawn);
+bool isCheck(unsigned char board[8][8], Vector2f kingPosition);
 
 bool inBounds(int y);
 

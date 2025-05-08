@@ -125,13 +125,13 @@ int main(int argc, char* argv[]) {
 
     char *exportString = NULL;
 
-    exportPosition(board, &exportString);
-    if(exportString == NULL) {
-        printf("Error exporting position!\n");
-    }
-    else {
-        printf("%s\n", exportString);
-    }
+    // exportPosition(board, &exportString);
+    // if(exportString == NULL) {
+    //     printf("Error exporting position!\n");
+    // }
+    // else {
+    //     printf("%s\n", exportString);
+    // }
 
     cleanUp(window);
     printf("Program ended\n");

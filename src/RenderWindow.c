@@ -35,9 +35,6 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
                 currentColor = colorClicked;
             }
             else if(isPossible) {
-                // currentColor.r -= 30;
-                // currentColor.g -= 30;
-                // currentColor.b -= 30;
                 currentColor = colorPossible;
             }
 

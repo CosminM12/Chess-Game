@@ -2,7 +2,7 @@
 #define VECTOR_H
 
 typedef struct Point {
-    float x, y;
+    int x, y;
 } Vector2f;
 
 

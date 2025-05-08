@@ -92,9 +92,25 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
     pieceActions[0] = false;
     pieceActions[1] = false;
 
-    unsigned int kingColor = (board[destY][destX] & COLOR_MASK) >> 4;
-    if(isCheck(board, kingsPositions[kingColor].x, kingsPositions[kingColor].y, lastDoublePawn)) {
-        printf("In check\n");
+    unsigned char color = board[destY][destX] & COLOR_MASK;
+
+    if((board[destY][destX] & TYPE_MASK) == KING) {
+        if(color == COLOR_MASK) {
+            printf("Black ");
+        }
+        else {
+            printf("White ");
+        }
+        printf("kings has moved!\n");
+        kingsPositions[color].x = destY;
+        kingsPositions[color].y = destX;
+    }
+
+    unsigned int nextColor = (board[destY][destX] & COLOR_MASK) == 0 ? 1 : 0;
+
+    
+    if(isCheck(board, kingsPositions[nextColor])) {
+        printf("In check!\n");
     }
 }
 
