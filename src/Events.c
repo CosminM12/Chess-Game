@@ -28,7 +28,8 @@ void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
 }
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
-    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
+//    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
+    int boardOffset = 0;
     return boardOffset < mouseX  && mouseX < (screenWidth - boardOffset);
 }
 
@@ -131,7 +132,8 @@ void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pie
 
 void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     //Get square from mouse cursor
-    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
+//    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
+    int boardOffset = 0;
     int squareX = (int)((mouseX - boardOffset) / squareSize);
     int squareY = (int)(mouseY / squareSize);
 
