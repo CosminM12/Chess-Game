@@ -24,18 +24,22 @@ if (APPLE)
     find_library(SDL2_LIBRARY SDL2 HINTS /opt/homebrew/lib)
     find_library(SDL2_IMAGE_LIBRARY SDL2_image HINTS /opt/homebrew/lib)
     find_library(SDL2_TTF_LIBRARY SDL2_ttf HINTS /opt/homebrew/lib)
+    find_library(SDL2_MIXER_LIBRARY SDL2_mixer HINTS /opt/homebrew/lib)
+
 
     # Add include directories
     include_directories(/opt/homebrew/include /opt/homebrew/include/SDL2)
 
     # Link libraries
-    target_link_libraries(program ${SDL2_LIBRARY} ${SDL2_IMAGE_LIBRARY} ${SDL2_TTF_LIBRARY})
+    target_link_libraries(program ${SDL2_LIBRARY} ${SDL2_IMAGE_LIBRARY} ${SDL2_TTF_LIBRARY} ${SDL2_MIXER_LIBRARY})
 else ()
     # Linux/Windows configuration
     find_package(SDL2 REQUIRED)
     find_package(SDL2_image REQUIRED)
     find_package(SDL2_ttf REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+
 
     include_directories(${SDL2_INCLUDE_DIRS})
-    target_link_libraries(program ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
+    target_link_libraries(program ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} {SDL2_TTF_LIBRARIES} ${SDL2_MIXER_LIBRARIES})
 endif ()
