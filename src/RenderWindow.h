@@ -4,8 +4,7 @@
 
 bool createWindow(const char *p_title, SDL_Window **window, SDL_Renderer **renderer, int screenWidth, int screenHeight);
 
-void
-drawBoard(SDL_Renderer *renderer, int squareSize, int boardOffset, int screenWidth, SDL_Color color1, SDL_Color color2,
+void drawBoard(SDL_Renderer *renderer, int squareSize, int boardOffset, int screenWidth, SDL_Color color1, SDL_Color color2,
           SDL_Color colorClicked, SDL_Color colorPossible, unsigned char board[8][8]);
 
 SDL_Texture *loadTexture(const char *p_filePath, SDL_Renderer **renderer);
@@ -18,6 +17,8 @@ void renderPiece(SDL_Rect pieceAtlas, int boardOffset, int squareSize, int line,
 bool initFont(const char *fontPath, int fontSize);
 
 void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x, int y);
+
+void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture *pieceTextures[2][7], unsigned char *captured, int count, int startX, int startY, int spacing);
 
 void destroyFont();
 

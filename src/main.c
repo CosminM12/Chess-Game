@@ -3,11 +3,14 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "Events.h"
 #include "util.h"
+
+#define MAX_CAPTURED 16
 
 /*----------Variable declaration------------*/
 bool gameRunning = true;
@@ -21,6 +24,7 @@ SDL_Color color_dark = {119, 149, 86, 255};
 SDL_Color color_clicked = {248, 255, 41, 145};
 SDL_Color color_possible = {200, 20, 20, 255};
 
+// ----- windows -----
 const int squareSize = 100;
 const int sidebar1_width = 300;
 const int sidebar2_width = 300;
@@ -30,7 +34,11 @@ const int boardWidth = squareSize * 8;
 const int screenWidth = boardWidth + sidebar1_width + sidebar2_width;
 const int screenHeight = squareSize * 8;
 
+const int timer_height = 100;
+const int captured_height = 150;
 
+
+// ----- time variables -----
 Uint64 currentTick, lastTick;
 double deltaTime;
 
@@ -39,6 +47,13 @@ int blackTimeMs = 5 * 60 * 1000;
 
 char whiteTimerStr[16];
 char blackTimerStr[16];
+
+// ----- captured variables -----
+#include "GameState.h"
+unsigned char capturedByWhite[MAX_CAPTURED] = {0};
+unsigned char capturedByBlack[MAX_CAPTURED] = {0};
+int capturedWhiteCount = 0;
+int capturedBlackCount = 0;
 
 
 void formatTime(char *buffer, int timeMs) {
@@ -57,6 +72,11 @@ bool init() {
     }
     if (!(IMG_Init(IMG_INIT_PNG))) {
         printf("IMG_Init has failed. Error: %s\n", SDL_GetError());
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer failed: %s\n", Mix_GetError());
+        return false;
     }
 
     if (!initFont("../res/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf", 24)) {
@@ -121,6 +141,37 @@ int main() {
     placePieces(board, input);
     findKings(board, kingsPositions); //Initialize kings positions
 
+    bool inMenu = true;
+
+    while (inMenu) {
+        SDL_Event menuEvent;
+        while (SDL_PollEvent(&menuEvent)) {
+            if (menuEvent.type == SDL_QUIT) {
+                gameRunning = false;
+                inMenu = false;
+            } else if (menuEvent.type == SDL_MOUSEBUTTONDOWN) {
+                int x = menuEvent.button.x;
+                int y = menuEvent.button.y;
+
+                // Example button position and size (adjust as needed)
+                if (x >= 400 && x <= 700 && y >= 300 && y <= 370) {
+                    inMenu = false; // Start game
+                }
+            }
+        }
+
+        // Render Menu
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255); // dark background
+        SDL_RenderClear(renderer);
+
+        renderText(renderer, "Chess Game", (SDL_Color){255, 255, 255, 255}, 500, 150);
+        SDL_Rect startButton = {450, 300, 200, 70};
+        SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255);
+        SDL_RenderFillRect(renderer, &startButton);
+        renderText(renderer, "Start Game", (SDL_Color){255, 255, 255, 255}, 480, 320);
+        SDL_RenderPresent(renderer);
+    }
+
     lastTick = SDL_GetPerformanceCounter();
     currentTick = lastTick;
 
@@ -162,7 +213,7 @@ int main() {
         SDL_RenderFillRect(renderer, &sidebar_background);
 
         // Timer section (red) on right sidebar
-        SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, 100};
+        SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, timer_height};
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         SDL_RenderFillRect(renderer, &timerBox);
 
@@ -176,7 +227,7 @@ int main() {
         renderText(renderer, blackTimerStr, (SDL_Color) {255, 255, 255, 255}, boardWidth + 150, 40);
 
         // Captured by Black (blue)
-        SDL_Rect capturedBlackBox = {boardWidth, 100, sidebar1_width, 150};
+        SDL_Rect capturedBlackBox = {boardWidth, timer_height, sidebar1_width, captured_height * 2};
         SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
         SDL_RenderFillRect(renderer, &capturedBlackBox);
 
@@ -196,14 +247,30 @@ int main() {
         SDL_RenderFillRect(renderer, &moveHistoryBox);
 
 
+        renderText(renderer, "Captured by white:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10, timer_height + 10);
+        renderText(renderer, "Captured by black:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10, timer_height + captured_height + 10);
+
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 renderPiece(pieceTextureCoordinates, 0, squareSize, row, col,
                             getPieceTexture(pieceTextures, board[row][col]), &renderer);
             }
         }
-        display(&renderer);
 
+
+
+        // Render captured by Black (white pieces)
+        renderCapturedPieces(renderer, pieceTextures, capturedByBlack, capturedBlackCount, boardWidth + 10, 110, 65);
+
+        // Render captured by White (black pieces)
+        renderCapturedPieces(renderer, pieceTextures, capturedByWhite, capturedWhiteCount,
+                             boardWidth + 10, 260, 65);
+
+
+        renderText(renderer, "Move history:", (SDL_Color) {255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
+
+
+        display(&renderer);
 
         currentTick = SDL_GetPerformanceCounter();
         deltaTime = (double) ((currentTick - lastTick) * 1000 / (double) SDL_GetPerformanceFrequency());

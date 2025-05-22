@@ -74,6 +74,26 @@ bool initFont(const char *fontPath, int fontSize) {
     return true;
 }
 
+void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture *pieceTextures[2][7], unsigned char *captured, int count, int startX, int startY, int spacing) {
+    SDL_Rect destRect = {startX, startY, 60, 60};
+
+    for (int i = 0; i < count; i++) {
+        unsigned char piece = captured[i];
+        int color = (piece & 0x30) == 0x10 ? 0 : 1; // white = 0x10, black = 0x20
+        int type = (piece & 0x0F);
+
+        if (type >= 1 && type <= 6) {
+            SDL_Texture *tex = pieceTextures[color][type];
+            SDL_RenderCopy(renderer, tex, NULL, &destRect);
+            destRect.x += spacing;
+            if (destRect.x > startX + 5 * spacing) {
+                destRect.x = startX;
+                destRect.y += spacing;
+            }
+        }
+    }
+}
+
 void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x, int y) {
 
     if (!globalFont) {
