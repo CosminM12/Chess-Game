@@ -26,9 +26,15 @@ createWindow(const char *p_title, SDL_Window **window, SDL_Renderer **renderer, 
     return true;
 }
 
-void
-drawBoard(SDL_Renderer *renderer, int squareSize, int boardOffset, int screenWidth, SDL_Color color1, SDL_Color color2,
-          SDL_Color colorClicked, SDL_Color colorPossible, unsigned char board[8][8]) {
+void drawBoard(SDL_Renderer *renderer,
+               int squareSize,
+               int boardOffset,
+               int screenWidth,
+               SDL_Color color1,
+               SDL_Color color2,
+               SDL_Color colorClicked,
+               SDL_Color colorPossible,
+               unsigned char board[8][8]) {
     for (int row = 0; row < 8; row++) {
         for (int col = 0; col < 8; col++) {
 
