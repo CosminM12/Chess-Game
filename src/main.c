@@ -7,10 +7,38 @@
 
 #include "RenderWindow.h"
 #include "Piece.h"
+#include "GameState.h"
 #include "Events.h"
 #include "util.h"
 
 #define MAX_CAPTURED 16
+
+
+Move moveHistory[MAX_MOVES];
+int moveCount = 0;
+
+
+int moveHistoryScrollOffset = 0;
+
+
+const char* pieceToChar(unsigned char piece) {
+    switch (piece & 0b11100000) {
+        case 0x10: // white
+        case 0x20: // black
+            break;
+    }
+
+    switch (piece & 0b00111000) {
+        case 0x08: return "";  // pawn
+        case 0x10: return "B"; // bishop
+        case 0x18: return "N"; // knight
+        case 0x20: return "R"; // rook
+        case 0x28: return "Q"; // queen
+        case 0x30: return "K"; // king
+        default:   return "?";
+    }
+}
+
 
 /*----------Variable declaration------------*/
 bool gameRunning = true;
@@ -32,7 +60,7 @@ const int sidebar2_width = 300;
 const int boardWidth = squareSize * 8;
 
 const int screenWidth = boardWidth + sidebar1_width + sidebar2_width;
-const int screenHeight = squareSize * 8;
+int screenHeight = squareSize * 8;
 
 const int timer_height = 100;
 const int captured_height = 150;
@@ -193,7 +221,7 @@ int main() {
         }
 
         //========== Events and movements ==========//
-        getEvents(event, &gameRunning, mouseActions);
+        getEvents(event, &gameRunning, mouseActions, &moveHistoryScrollOffset);
         SDL_GetMouseState(&mouseX, &mouseY);
 
         if (mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
@@ -243,7 +271,7 @@ int main() {
 
         // Move History (green)
         SDL_Rect moveHistoryBox = {boardWidth + sidebar1_width, 0, sidebar2_width, screenHeight};
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer, &moveHistoryBox);
 
 
@@ -267,7 +295,52 @@ int main() {
                              boardWidth + 10, 260, 65);
 
 
-        renderText(renderer, "Move history:", (SDL_Color) {255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
+        renderText(renderer, "MOVE HISTORY:", (SDL_Color) {255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
+
+        // Use scroll offset
+        const int moveHeight = 25;
+        int visibleStart = moveHistoryScrollOffset / moveHeight;
+        int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
+
+        for (int i = visibleStart; i < visibleEnd && i < moveCount; ++i) {
+            char buffer[64];
+            sprintf(buffer, "%d. %s", (i + 1), moveHistory[i].notation);
+
+            int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
+
+            if (y >= 40 && y < screenHeight - 10) {
+                renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255},
+                           boardWidth + sidebar1_width + 15, y);
+            }
+        }
+
+
+//        for (int i = 0; i < moveCount; ++i) {
+//            char buffer[64];
+//            sprintf(buffer, "%d. %s", (i + 1), moveHistory[i].notation);
+//            int yOffset = 40 + (i * 25);
+//            renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255}, boardWidth + sidebar1_width + 15, yOffset);
+//
+//        }
+
+
+//        int startY = 30 + moveHistoryScrollOffset;
+//        int moveHeight = 20;
+//        int visibleStart = moveHistoryScrollOffset / moveHeight;
+//        int visibleEnd = visibleStart + (screenHeight / moveHeight) + 2;
+//
+//        if (visibleEnd > moveCount) visibleEnd = moveCount;
+//
+//        for (int i = visibleStart; i < visibleEnd; ++i) {
+//            char buffer[64];
+//            sprintf(buffer, "%d. %s", (i / 2) + 1, moveHistory[i].notation);
+//            int y = startY + i * moveHeight;
+////            if (y > 0)
+//            printf("%d\n", y);
+//            renderText(renderer, buffer, (SDL_Color){0, 0, 0, 255}, boardWidth + sidebar1_width + 10, y);
+//        }
+
+
 
 
         display(&renderer);

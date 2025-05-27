@@ -3,13 +3,36 @@
 #include <stdbool.h>
 #include <math.h>
 #include <SDL2/SDL_mixer.h>
-
 #include "Events.h"
 #include "Piece.h"
-
 #include "GameState.h"
 
-void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
+const int scrollStep = 20;
+
+void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece) {
+    if (moveCount >= MAX_MOVES) return;
+
+    const char *pieceChar;
+    switch (piece & TYPE_MASK) {
+        case PAWN:   pieceChar = "";  break;
+        case KNIGHT: pieceChar = "N"; break;
+        case BISHOP: pieceChar = "B"; break;
+        case ROOK:   pieceChar = "R"; break;
+        case QUEEN:  pieceChar = "Q"; break;
+        case KING:   pieceChar = "K"; break;
+        default:     pieceChar = "?"; break;
+    }
+
+    char from[3] = { 'a' + startCol, '8' - startRow, '\0' };
+    char to[3] = { 'a' + endCol, '8' - endRow, '\0' };
+
+    snprintf(moveHistory[moveCount].notation, sizeof(moveHistory[moveCount].notation),
+             "%s%s%s", pieceChar, from, to);
+
+    moveCount++;
+}
+
+void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[], int *scrollOffset) {
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
             case SDL_QUIT:
@@ -24,6 +47,14 @@ void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
                 if (event.button.button == SDL_BUTTON_LEFT) {
                     mouseActions[1] = true;
                 }
+                break;
+            case SDL_MOUSEWHEEL:
+                *scrollOffset -= event.wheel.y * scrollStep;
+                if (*scrollOffset < 0) *scrollOffset = 0;
+
+                int maxScroll = (moveCount * 25) - screenHeight;
+                if (maxScroll < 0) maxScroll = 0;
+                if (*scrollOffset > maxScroll) *scrollOffset = maxScroll;
                 break;
         }
     }
@@ -86,8 +117,11 @@ void makeMove(unsigned char board[8][8],
     }
 
 
-    //copy piece to new location (only last 5 bits);
+    // copy piece to new location (only last 5 bits);
     board[destY][destX] = (board[oldY][oldX] & 0x1F);
+
+    addMoveToHistory(oldY, oldX, destY, destX, board[destY][destX]);
+
 
     //---Handle pawn special moves---
     if ((board[destY][destX] & TYPE_MASK) == PAWN) {

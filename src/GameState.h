@@ -9,4 +9,6 @@ extern unsigned char capturedByBlack[MAX_CAPTURED];
 extern int capturedWhiteCount;
 extern int capturedBlackCount;
 
+extern int screenHeight;
+
 #endif
