@@ -2,6 +2,8 @@
 #define RENDERWINDOW_H
 
 
+#include "GameState.h"
+
 bool createWindow(const char *p_title, SDL_Window **window, SDL_Renderer **renderer, int screenWidth, int screenHeight);
 
 void drawBoard(SDL_Renderer *renderer, int squareSize, int boardOffset, int screenWidth, SDL_Color color1, SDL_Color color2,
@@ -18,7 +20,7 @@ bool initFont(const char *fontPath, int fontSize);
 
 void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x, int y);
 
-void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture *pieceTextures[2][7], unsigned char *captured, int count, int startX, int startY, int spacing);
+void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state);
 
 void destroyFont();
 

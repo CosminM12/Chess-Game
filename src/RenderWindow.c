@@ -80,22 +80,51 @@ bool initFont(const char *fontPath, int fontSize) {
     return true;
 }
 
-void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture *pieceTextures[2][7], unsigned char *captured, int count, int startX, int startY, int spacing) {
-    SDL_Rect destRect = {startX, startY, 60, 60};
+void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state) {
+    // Constants for rendering captured pieces
+    const int capturedPieceSize = 50; // Smaller size for captured pieces
+    const int padding = 5;
+    const int piecesPerRow = 3; // Number of pieces to display per row in sidebar
 
-    for (int i = 0; i < count; i++) {
-        unsigned char piece = captured[i];
-        int color = (piece & 0x30) == 0x10 ? 0 : 1; // white = 0x10, black = 0x20
-        int type = (piece & 0x0F);
+    SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
 
-        if (type >= 1 && type <= 6) {
-            SDL_Texture *tex = pieceTextures[color][type];
-            SDL_RenderCopy(renderer, tex, NULL, &destRect);
-            destRect.x += spacing;
-            if (destRect.x > startX + 5 * spacing) {
-                destRect.x = startX;
-                destRect.y += spacing;
-            }
+    // Render White's Captured Pieces (Black's pieces)
+    // This goes into the 'Captured by Black' box, which is currently a blue box at boardWidth, 100
+    int startX_blackCaptured = boardWidth + padding;
+    int startY_blackCaptured = 100 + padding; // Below the timer box
+
+    for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
+        unsigned char pieceType = state->whiteCapturedPieces[i];
+        // Captured pieces by White are Black's pieces (COLOR_MASK represents black if set)
+        unsigned char pieceByte = pieceType | COLOR_MASK; // Combine type with black color mask
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
+        }
+    }
+
+    // Render Black's Captured Pieces (White's pieces)
+    // This goes into the 'Captured by White' box, which is currently a purple box at boardWidth + sidebar1_width, 250
+    int startX_whiteCaptured = boardWidth + sidebar1_width + padding;
+    int startY_whiteCaptured = 250 + padding; // Offset for white's captured box
+
+    for (int i = 0; i < state->numBlackCapturedPieces; i++) {
+        unsigned char pieceType = state->blackCapturedPieces[i];
+        // Captured pieces by Black are White's pieces (0 for white color)
+        unsigned char pieceByte = pieceType; // Combine type with white color (0 means white)
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
         }
     }
 }

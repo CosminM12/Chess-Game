@@ -2,6 +2,7 @@
 #define EVENTS_H
 
 #include "util.h"
+#include "GameState.h"
 
 #define MAX_MOVES 1024
 
@@ -10,23 +11,15 @@ void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[], int *scr
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize);
 
-void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare);
+void selectAndHold(GameState* state, int squareX, int squareY);
 
-void makeMove(unsigned char board[8][8],
-              int destX,
-              int destY,
-              Vector2f* sourceSquare,
-              bool pieceActions[],
-              Vector2f* lastDoublePawn,
-              Vector2f kingsPositions[],
-              unsigned char* capturedByWhite,
-              unsigned char* capturedByBlack,
-              int* capturedWhiteCount,
-              int* capturedBlackCount);
+void makeMove(GameState* state, int destX, int destY);
 
-void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]);
+void deselectPiece(GameState* state);
 
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
+//void handleMouseInput(GameState* state, int mouseX, int mouseY, int screenWidth, int squareSize);
+
+void handleMouseInput(GameState* state, int mouseX, int mouseY);
 
 void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 

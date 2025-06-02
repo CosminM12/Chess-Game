@@ -11,8 +11,6 @@
 #include "Events.h"
 #include "util.h"
 
-#define MAX_CAPTURED 16
-
 
 Move moveHistory[MAX_MOVES];
 int moveCount = 0;
@@ -43,6 +41,7 @@ const char* pieceToChar(unsigned char piece) {
 /*----------Variable declaration------------*/
 bool gameRunning = true;
 
+GameState gameState;
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 
@@ -53,15 +52,6 @@ SDL_Color color_clicked = {248, 255, 41, 145};
 SDL_Color color_possible = {200, 20, 20, 255};
 
 // ----- windows -----
-const int squareSize = 100;
-const int sidebar1_width = 300;
-const int sidebar2_width = 300;
-
-const int boardWidth = squareSize * 8;
-
-const int screenWidth = boardWidth + sidebar1_width + sidebar2_width;
-int screenHeight = squareSize * 8;
-
 const int timer_height = 100;
 const int captured_height = 150;
 
@@ -77,11 +67,10 @@ char whiteTimerStr[16];
 char blackTimerStr[16];
 
 // ----- captured variables -----
-#include "GameState.h"
-unsigned char capturedByWhite[MAX_CAPTURED] = {0};
-unsigned char capturedByBlack[MAX_CAPTURED] = {0};
-int capturedWhiteCount = 0;
-int capturedBlackCount = 0;
+//unsigned char capturedByWhite[MAX_CAPTURED] = {0};
+//unsigned char capturedByBlack[MAX_CAPTURED] = {0};
+//int capturedWhiteCount = 0;
+//int capturedBlackCount = 0;
 
 
 void formatTime(char *buffer, int timeMs) {
@@ -127,6 +116,9 @@ void printfBoard(unsigned char board[8][8]) {
 
 
 int main() {
+
+    initGameState(&gameState);
+
     /*==========Program Initialization==========*/
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
@@ -153,6 +145,7 @@ int main() {
     *pos0: isSelected(a piece is selected)
     *pos1: isHoldingPiece (a piece is holded in "hand")
     */
+
 
     bool blackTurn = false; //remember who's player is the turn
     SDL_Event event;
@@ -225,8 +218,11 @@ int main() {
         SDL_GetMouseState(&mouseX, &mouseY);
 
         if (mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
-            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn,
-                             &selectedSquare, &lastDoublePushPawn, kingsPositions);
+//            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn,
+//                             &selectedSquare, &lastDoublePushPawn, kingsPositions);
+
+            handleMouseInput(&gameState, mouseX, mouseY); // <--- This is the correct call
+
             mouseActions[0] = false;
             mouseActions[1] = false;
         }
@@ -288,11 +284,10 @@ int main() {
 
 
         // Render captured by Black (white pieces)
-        renderCapturedPieces(renderer, pieceTextures, capturedByBlack, capturedBlackCount, boardWidth + 10, 110, 65);
+        renderCapturedPieces(renderer, pieceTextures, &gameState);
 
         // Render captured by White (black pieces)
-        renderCapturedPieces(renderer, pieceTextures, capturedByWhite, capturedWhiteCount,
-                             boardWidth + 10, 260, 65);
+        renderCapturedPieces(renderer, pieceTextures, &gameState);
 
 
         renderText(renderer, "MOVE HISTORY:", (SDL_Color) {255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);

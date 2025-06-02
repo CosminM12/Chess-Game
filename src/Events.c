@@ -1,8 +1,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdbool.h>
 #include <math.h>
-#include <SDL2/SDL_mixer.h>
+
 #include "Events.h"
 #include "Piece.h"
 #include "GameState.h"
@@ -66,213 +67,152 @@ bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
     return boardOffset < mouseX && mouseX < (screenWidth - boardOffset);
 }
 
-void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare) {
-    //toggle active: hold and select
-    pieceActions[0] = true;
-    pieceActions[1] = true;
-
-    //change square to selected
-    board[squareY][squareX] |= SELECTED_MASK;
-
-    //save selected square coords
-    (*selectedSquare).x = squareX;
-    (*selectedSquare).y = squareY;
+void selectAndHold(GameState* state, int squareX, int squareY) {
+    state->pieceActions[0] = true;
+    state->pieceActions[1] = true;
+    state->board[squareY][squareX] |= SELECTED_MASK;
+    state->selectedSquare.x = squareX;
+    state->selectedSquare.y = squareY;
 }
 
-void makeMove(unsigned char board[8][8],
-              int destX,
-              int destY,
-              Vector2f *sourceSquare,
-              bool pieceActions[],
-              Vector2f *lastDoublePawn,
-              Vector2f kingsPositions[],
-              unsigned char *capturedByWhite,
-              unsigned char *capturedByBlack,
-              int *capturedWhiteCount,
-              int *capturedBlackCount) {
+void makeMove(GameState* state, int destX, int destY) {
+    int oldX = state->selectedSquare.x;
+    int oldY = state->selectedSquare.y;
 
-    Mix_Chunk* moveSound = Mix_LoadWAV("../res/sfx/move-self.mp3");
-    Mix_PlayChannel(1, moveSound, 0);
+    unsigned char capturedPieceOnDest = state->board[destY][destX]; // Get the piece that was on the destination square
+    unsigned char capturedPieceType = (capturedPieceOnDest & TYPE_MASK); // Extract its type
+    unsigned char capturingPiece = state->board[oldY][oldX]; // Get the piece making the move
 
-    int oldX = (*sourceSquare).x;
-    int oldY = (*sourceSquare).y;
+    // Check for a standard capture (a piece on the destination square before move)
+    bool isStandardCapture = (capturedPieceType != NONE);
 
-    //check if any piece is captured
-    bool capture = (board[destY][destX] & TYPE_MASK) != 0;
+    // If a standard capture occurred, add the captured piece to the correct array
+    if (isStandardCapture) {
+        unsigned char capturingColor = (capturingPiece & COLOR_MASK);
 
-    if (capture) {
-        unsigned char capturedPiece = board[destY][destX];
-
-        if ((board[oldY][oldX] & COLOR_MASK) == 0x10) {
-            // White moved => captured a black piece
-            if (*capturedWhiteCount < MAX_CAPTURED) {
-                capturedByWhite[(*capturedWhiteCount)++] = capturedPiece;
-            }
-        } else if ((board[oldY][oldX] & COLOR_MASK) == 0x20) {
-            // Black moved => captured a white piece
-            if (*capturedBlackCount < MAX_CAPTURED) {
-                capturedByBlack[(*capturedBlackCount)++] = capturedPiece;
-            }
+        // Assuming COLOR_MASK = 0x10 for black, 0 for white (default if COLOR_MASK is not present)
+        // Adjust the condition based on your actual COLOR_MASK setup:
+        // If capturingColor is 0 (white), then a Black piece was captured.
+        // If capturingColor is 0x10 (black), then a White piece was captured.
+        if (capturingColor == 0) { // White is capturing, so a Black piece is captured
+            state->whiteCapturedPieces[state->numWhiteCapturedPieces++] = capturedPieceType;
+        } else { // Black is capturing, so a White piece is captured
+            state->blackCapturedPieces[state->numBlackCapturedPieces++] = capturedPieceType;
         }
     }
 
+    // Copy piece to new location (only last 5 bits, preserving modifier bits if any)
+    state->board[destY][destX] = (capturingPiece & 0x1F); // Use 0x1F mask to copy piece type and color correctly
 
-    // copy piece to new location (only last 5 bits);
-    board[destY][destX] = (board[oldY][oldX] & 0x1F);
+    // ---Handle pawn special moves---
+    if((state->board[destY][destX] & TYPE_MASK) == PAWN) {
+        // Set modifier (pawn can't double push anymore)
+        state->board[destY][destX] |= MODIFIER;
 
-    addMoveToHistory(oldY, oldX, destY, destX, board[destY][destX]);
-
-
-    //---Handle pawn special moves---
-    if ((board[destY][destX] & TYPE_MASK) == PAWN) {
-
-        //Set modifier (pawn can't double push anymore)
-        board[destY][destX] |= MODIFIER;
-
-
-        //double pawn push =>  remember for 'En passant'
-        if (abs(destY - oldY) == 2) {
-            (*lastDoublePawn).x = destX;
-            (*lastDoublePawn).y = destY;
+        // Double pawn push => remember for 'En passant'
+        if(abs(destY - oldY) == 2) {
+            state->lastDoublePushPawn.x = destX;
+            state->lastDoublePushPawn.y = destY;
         } else {
-            int lastDoubleX = (*lastDoublePawn).x;
-            int lastDoubleY = (*lastDoublePawn).y;
+            // En passant capture: If it was a diagonal pawn move to an empty square,
+            // it's an en passant capture. Remove the captured pawn.
+            if (!isStandardCapture && abs(destX - oldX) == 1) {
+                // Determine the row of the captured pawn (one square behind the destination in pawn's direction)
+                int pawnColor = (state->board[destY][destX] & COLOR_MASK); // Color of the pawn that just moved
+                int capturedPawnRow = destY + (pawnColor == 0 ? 1 : -1); // If white pawn moved down, captured pawn is above; if black pawn moved up, captured pawn is below
 
-            //En passant => delete captured piece
-            if (!capture && abs(destX - oldX) == 1) {
-                board[lastDoubleY][lastDoubleX] = 0;
+                // Add the captured pawn type to the correct array (it's always a PAWN)
+                if (pawnColor == 0) { // White pawn captured Black's pawn via en passant
+                    state->whiteCapturedPieces[state->numWhiteCapturedPieces++] = PAWN;
+                } else { // Black pawn captured White's pawn via en passant
+                    state->blackCapturedPieces[state->numBlackCapturedPieces++] = PAWN;
+                }
+                state->board[capturedPawnRow][destX] = NONE; // Remove the captured pawn from the board
             }
-
-            //remove last double pawn
-            (*lastDoublePawn).x = -1.0f;
-            (*lastDoublePawn).y = -1.0f;
+            state->lastDoublePushPawn.x = -1.0f; // Reset lastDoublePushPawn if it wasn't a double push
+            state->lastDoublePushPawn.y = -1.0f;
         }
     }
 
-    //delete from old position
-    board[oldY][oldX] = 0;
+    // Delete piece from old position
+    state->board[oldY][oldX] = NONE; // Use NONE for clarity instead of 0
 
-    //delte selected square
-    (*sourceSquare).x = -1.0f;
-    (*sourceSquare).y = -1.0f;
+    // Deselect piece and clear related states
+    state->selectedSquare.x = -1.0f;
+    state->selectedSquare.y = -1.0f;
+    state->pieceActions[0] = false;
+    state->pieceActions[1] = false;
 
-    pieceActions[0] = false;
-    pieceActions[1] = false;
-
-    unsigned char color = board[destY][destX] & COLOR_MASK;
-
-    if ((board[destY][destX] & TYPE_MASK) == KING) {
-        if (color == COLOR_MASK) {
-            printf("Black ");
-        } else {
-            printf("White ");
-        }
-        printf("kings has moved!\n");
-        kingsPositions[color].x = destY;
-        kingsPositions[color].y = destX;
+    unsigned char movedPieceColor = (state->board[destY][destX] & COLOR_MASK);
+    if((state->board[destY][destX] & TYPE_MASK) == KING) {
+        // Update king's position in kingsPositions array
+        unsigned int colorIndex = (movedPieceColor == 0) ? 0 : 1; // 0 for white king, 1 for black king
+        state->kingsPositions[colorIndex].x = destY;
+        state->kingsPositions[colorIndex].y = destX;
     }
 
-    unsigned int nextColor = (board[destY][destX] & COLOR_MASK) == 0 ? 1 : 0;
+    // Toggle turn for the next player
+    state->blackTurn = !state->blackTurn;
 
-
-    if (isCheck(board, kingsPositions[nextColor])) {
+    // Check if the opponent's king is in check after the move
+    unsigned int nextPlayerColorIndex = (movedPieceColor == 0) ? 1 : 0; // If white moved, check black king; if black moved, check white king
+    if(isCheck(state->board, state->kingsPositions[nextPlayerColorIndex])) {
         printf("In check!\n");
     }
+
+    clearPossibleBoard(state->board); // Clear possible moves after a move has been made
 }
 
-void deselectPiece(unsigned char board[8][8], Vector2f *selectedSquare, bool pieceActions[]) {
-    int oldX = (*selectedSquare).x;
-    int oldY = (*selectedSquare).y;
+void deselectPiece(GameState* state) {
+    int oldX = state->selectedSquare.x;
+    int oldY = state->selectedSquare.y;
 
-    //deselect piece
-    board[oldY][oldX] &= (~SELECTED_MASK);
-
-    //delete selected sqaure
-    (*selectedSquare).x = -1.0f;;
-    (*selectedSquare).y = -1.0f;
-
-    pieceActions[0] = false;
-    pieceActions[1] = false;
+    state->board[oldY][oldX] &= (~SELECTED_MASK);
+    state->selectedSquare.x = -1.0f;
+    state->selectedSquare.y = -1.0f;
+    state->pieceActions[0] = false;
+    state->pieceActions[1] = false;
 }
 
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize,
-                      bool mouseActions[], bool pieceActions[], bool *blackTurn, Vector2f *selectedSquare,
-                      Vector2f *lastDoublePawn, Vector2f kingsPositions[]) {
-    //Get square from mouse cursor
-//    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
-    int boardOffset = 0;
-    int squareX = (int) ((mouseX - boardOffset) / squareSize);
-    int squareY = (int) (mouseY / squareSize);
+void handleMouseInput(GameState* state, int mouseX, int mouseY) {
+    int boardOffset = 0; // Assuming this is also a global constant or defined locally
+    int squareX = (int)((mouseX - boardOffset) / squareSize);
+    int squareY = (int)(mouseY / squareSize);
 
-    /*=================
-    bool vector arrays
-    mouseActions[]:
-    0: mousePressed -----> click button is pressed
-    1: mouseReleased -----> click button is released
-
-    pieceActions[]:
-    0: pieceSelected ----> piece is selected (has been pressed on and (maybe) released)
-    1: pieceHolding ----> piece is holded with mouse click and follows the cursor
-    =================*/
-
-    if (mouseActions[0]) { //MOUSE CLICKED
-        //NO SELECTED PIECE => SELECT
-        if (!pieceActions[0]) {
-            if (board[squareY][squareX] != 0 && !opposingColor(board[squareY][squareX], *blackTurn)) {
-                selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
-
-                generatePossibleMoves(board, squareY, squareX, lastDoublePawn);
+    if(state->mouseActions[0]) { // MOUSE CLICKED
+        if(!state->pieceActions[0]) { // NO SELECTED PIECE => SELECT
+            if(state->board[squareY][squareX] != 0 && !opposingColor(state->board[squareY][squareX], state->blackTurn)) {
+                selectAndHold(state, squareX, squareY);
+                generatePossibleMoves(state->board, squareY, squareX, &state->lastDoublePushPawn);
+            }
+        } else { // A SELECTED PIECE => TRY TO MOVE
+            if((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                makeMove(state, squareX, squareY); // Pass state
+                clearPossibleBoard(state->board);
+            } else {
+                //deselectPiece(state); // If not valid, deselect
+                //clearPossibleBoard(state->board);
             }
         }
-            //A SELECTED PIECE  => TRY TO MOVE
-        else {
-
-            //VALID MOVE => MOVE PIECE
-            if ((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions,
-                         capturedByWhite, capturedByBlack, &capturedWhiteCount, &capturedBlackCount);
-                *blackTurn = !(*blackTurn);
-                clearPossibleBoard(board);
-            }
-
-                //NOT VALID => CANCEL SELECT
-            else {
-                // deselectPiece(board, selectedSquare, pieceActions);
-                //clearPossibleBoard(board);
-            }
-        }
-    } else if (mouseActions[1]) { //MOUSE RELEASED
-
-        //HOLDING PIECE
-        if (pieceActions[1]) {
-
-            //dest=src => STOP HOLD
-            if (squareX == (*selectedSquare).x && squareY == (*selectedSquare).y) {
-                pieceActions[1] = false;
-            }
-
-                //different dest => MOVE or DESELECT
-            else {
-                if ((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions,
-                             capturedByWhite, capturedByBlack, &capturedWhiteCount, &capturedBlackCount);
-                    *blackTurn = !(*blackTurn);
-                    clearPossibleBoard(board);
+    } else if(state->mouseActions[1]) { // MOUSE RELEASED
+        if(state->pieceActions[1]) { // HOLDING PIECE
+            if(squareX == state->selectedSquare.x && squareY == state->selectedSquare.y) {
+                state->pieceActions[1] = false;
+            } else {
+                if((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                    makeMove(state, squareX, squareY); // Pass state
+                    clearPossibleBoard(state->board);
                 } else {
-                    deselectPiece(board, selectedSquare, pieceActions);
-                    clearPossibleBoard(board);
+                    deselectPiece(state);
+                    clearPossibleBoard(state->board);
                 }
             }
-        }
-            //NOT HOLDING =>
-        else {
-            if ((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions,
-                         capturedByWhite, capturedByBlack, &capturedWhiteCount, &capturedBlackCount);
-                *blackTurn = !(*blackTurn);
+        } else {
+            if((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                makeMove(state, squareX, squareY); // Pass state
             } else {
-                deselectPiece(board, selectedSquare, pieceActions);
-                clearPossibleBoard(board);
+                deselectPiece(state);
+                clearPossibleBoard(state->board);
             }
         }
     }

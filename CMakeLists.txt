@@ -1,3 +1,4 @@
+# CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
 project(sdl_project C)
 
@@ -10,6 +11,7 @@ set(SOURCE_FILES
         src/Piece.c
         src/Events.c
         src/util.c
+        src/GameState.c
 )
 
 # Add executable
@@ -24,22 +26,22 @@ if (APPLE)
     find_library(SDL2_LIBRARY SDL2 HINTS /opt/homebrew/lib)
     find_library(SDL2_IMAGE_LIBRARY SDL2_image HINTS /opt/homebrew/lib)
     find_library(SDL2_TTF_LIBRARY SDL2_ttf HINTS /opt/homebrew/lib)
-    find_library(SDL2_MIXER_LIBRARY SDL2_mixer HINTS /opt/homebrew/lib)
+    find_library(SDL2_MIXER_LIBRARY SDL2_mixer HINTS /opt/homebrew/lib) # Already correct
 
 
     # Add include directories
     include_directories(/opt/homebrew/include /opt/homebrew/include/SDL2)
 
     # Link libraries
-    target_link_libraries(program ${SDL2_LIBRARY} ${SDL2_IMAGE_LIBRARY} ${SDL2_TTF_LIBRARY} ${SDL2_MIXER_LIBRARY})
+    target_link_libraries(program ${SDL2_LIBRARY} ${SDL2_IMAGE_LIBRARY} ${SDL2_TTF_LIBRARY} ${SDL2_MIXER_LIBRARY}) # <--- ADD ${SDL2_MIXER_LIBRARY} HERE
 else ()
     # Linux/Windows configuration
     find_package(SDL2 REQUIRED)
     find_package(SDL2_image REQUIRED)
     find_package(SDL2_ttf REQUIRED)
-    find_package(SDL2_mixer REQUIRED)
+    find_package(SDL2_mixer REQUIRED) # Already correct
 
 
     include_directories(${SDL2_INCLUDE_DIRS})
-    target_link_libraries(program ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} {SDL2_TTF_LIBRARIES} ${SDL2_MIXER_LIBRARIES})
+    target_link_libraries(program ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES} ${SDL2_TTF_LIBRARIES} ${SDL2_MIXER_LIBRARIES}) # <--- ADD ${SDL2_MIXER_LIBRARIES} HERE
 endif ()

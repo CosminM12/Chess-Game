@@ -17,6 +17,8 @@ Pawn: remembers if it has move before (for double push)
 King: remembers if a check has occured (for castling)
 ==========*/
 
+#define MAX_CAPTURED 16
+
 #define TYPE_MASK 0x7
 #define COLOR_MASK 0x10  //0 = white, 1 = black
 
