@@ -53,7 +53,7 @@ SDL_Color color_possible = {200, 20, 20, 255};
 
 // ----- windows -----
 const int timer_height = 100;
-const int captured_height = 150;
+const int captured_height = 250;
 
 
 // ----- time variables -----
@@ -129,13 +129,12 @@ int main() {
     printf("Program started successfully\n");
 
     /*==========Initialize Variables==========*/
-    unsigned char board[8][8] = {0};
     //Each square has 1 bite(unsigned char) or 8 bits:
     //Bits 6 to 8 (3 bits) know the type of piece on the square: 1=pawn, 2=bishop, 3=knight, 4=rook, 5=queen, 6=king
     //Bits 4 and 5 (2 bits) know the color of the piece on the square: 1 on bit 5 is white (0x10), 1 on bit 4 is black (0x20)
     //Bit 3 knows if the square is clicked on
 
-    bool mouseActions[2] = {false, false};
+//    bool mouseActions[2] = {false, false};
     /*
     *pos0: mouseButtonDown (click button pressed)
     *pos1: mouseButtonUp (click button released)
@@ -159,8 +158,8 @@ int main() {
     //========== Initialize values ==========//
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
-    placePieces(board, input);
-    findKings(board, kingsPositions); //Initialize kings positions
+    placePieces(gameState.board, input);
+    findKings(gameState.board, kingsPositions); //Initialize kings positions
 
     bool inMenu = true;
 
@@ -214,7 +213,7 @@ int main() {
         }
 
         //========== Events and movements ==========//
-        getEvents(event, &gameRunning, mouseActions, &moveHistoryScrollOffset);
+        getEvents(event, &gameState, &moveHistoryScrollOffset);
         SDL_GetMouseState(&mouseX, &mouseY);
 
         if (mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
@@ -223,13 +222,13 @@ int main() {
 
             handleMouseInput(&gameState, mouseX, mouseY); // <--- This is the correct call
 
-            mouseActions[0] = false;
-            mouseActions[1] = false;
+            gameState.mouseActions[0] = false;
+            gameState.mouseActions[1] = false;
         }
 
         //========== Rendering Visuals ==========//
         clear(&renderer);
-        drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible, board);
+        drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible, gameState.board);
 
         // ----- setting the background color -----
         SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
@@ -277,7 +276,7 @@ int main() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 renderPiece(pieceTextureCoordinates, 0, squareSize, row, col,
-                            getPieceTexture(pieceTextures, board[row][col]), &renderer);
+                            getPieceTexture(pieceTextures, gameState.board[row][col]), &renderer);
             }
         }
 

@@ -7,7 +7,7 @@
 #define MAX_MOVES 1024
 
 
-void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[], int *scrollOffset);
+void getEvents(SDL_Event event, GameState *state, int *scrollOffset);
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize);
 

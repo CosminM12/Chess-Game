@@ -82,16 +82,16 @@ bool initFont(const char *fontPath, int fontSize) {
 
 void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state) {
     // Constants for rendering captured pieces
-    const int capturedPieceSize = 50; // Smaller size for captured pieces
+    const int capturedPieceSize = 40; // Smaller size for captured pieces
     const int padding = 5;
-    const int piecesPerRow = 3; // Number of pieces to display per row in sidebar
+    const int piecesPerRow = 6; // Number of pieces to display per row in sidebar
 
     SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
 
     // Render White's Captured Pieces (Black's pieces)
     // This goes into the 'Captured by Black' box, which is currently a blue box at boardWidth, 100
     int startX_blackCaptured = boardWidth + padding;
-    int startY_blackCaptured = 100 + padding; // Below the timer box
+    int startY_blackCaptured = 140 + padding; // Below the timer box
 
     for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
         unsigned char pieceType = state->whiteCapturedPieces[i];
@@ -110,8 +110,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
 
     // Render Black's Captured Pieces (White's pieces)
     // This goes into the 'Captured by White' box, which is currently a purple box at boardWidth + sidebar1_width, 250
-    int startX_whiteCaptured = boardWidth + sidebar1_width + padding;
-    int startY_whiteCaptured = 250 + padding; // Offset for white's captured box
+    int startX_whiteCaptured = boardWidth + padding;
+    int startY_whiteCaptured = 390 + padding; // Offset for white's captured box
 
     for (int i = 0; i < state->numBlackCapturedPieces; i++) {
         unsigned char pieceType = state->blackCapturedPieces[i];
