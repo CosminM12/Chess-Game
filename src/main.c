@@ -195,12 +195,12 @@ int main() {
     lastTick = SDL_GetPerformanceCounter();
     currentTick = lastTick;
 
-    while (gameRunning) {
+    while (gameState.gameRunning) {
         //========== Find time variables ==========//
         lastTick = currentTick;
         // printfBoard(board);
 
-        if (blackTurn) {
+        if (gameState.blackTurn) {
             blackTimeMs -= deltaTime;
             if (blackTimeMs < 0) {
                 blackTimeMs = 0;
