@@ -159,15 +159,6 @@ void copyBoard(unsigned char src[8][8], unsigned char dst[8][8]) {
     memcpy(dst, src, 64 * sizeof(unsigned char));
 }
 
-// Store Principal Variation
-void storePV(Move line[], Move move, Move childLine[], int childLength, int* lineLength) {
-    line[0] = move;
-    if (childLength > 0) {
-        memcpy(&line[1], childLine, childLength * sizeof(Move));
-    }
-    *lineLength = childLength + 1;
-}
-
 // Determine game phase (0-256, where 0 is endgame and 256 is opening)
 int getPhase(unsigned char board[8][8]) {
     int phase = 256; // Start with maximum (opening)
@@ -312,7 +303,7 @@ bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned cha
 
 // Check if the king is in check
 bool isKingInCheck(unsigned char board[8][8], Vector2f kingPosition, unsigned char color) {
-    return isSquareAttacked(board, kingPosition, 1 - color); // Check if attacked by opposite color
+    return isCheck(board, kingPosition); // Use the isCheck function from Piece.c
 }
 
 // Generate pseudo-legal moves (without checking if they leave king in check)
@@ -453,45 +444,6 @@ void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePa
     // Place the piece on the board
     board[move.to.x][move.to.y] = newPiece;
     board[move.from.x][move.from.y] = NONE;
-}
-
-// Unmake a move (restore the board to its previous state)
-void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]) {
-    unsigned char movedPiece = board[move.to.x][move.to.y];
-    unsigned char pieceType = movedPiece & TYPE_MASK;
-    unsigned char color = (movedPiece & COLOR_MASK) >> 4;
-
-    // Restore the moved piece with its original MODIFIER state
-    // For engine search purposes, we need to restore exactly the original state
-    board[move.from.x][move.from.y] = (pieceType | (color << 4) | (move.originalModifier ? MODIFIER : 0));
-
-    // Restore the captured piece
-    board[move.to.x][move.to.y] = move.capturedPiece;
-
-    // Handle undoing castling
-    if (pieceType == KING && abs(move.to.y - move.from.y) == 2) {
-        // Kingside castling (short castle)
-        if (move.to.y > move.from.y) {
-            // Restore the rook to its original position with MODIFIER
-            board[move.to.x][7] = (ROOK | (color << 4) | MODIFIER);
-            board[move.to.x][move.to.y - 1] = 0; // Remove the rook from its castled position
-        }
-        // Queenside castling (long castle)
-        else {
-            // Restore the rook to its original position with MODIFIER
-            board[move.to.x][0] = (ROOK | (color << 4) | MODIFIER);
-            board[move.to.x][move.to.y + 1] = 0; // Remove the rook from its castled position
-        }
-    }
-
-    // Restore king position if king was moved
-    if (pieceType == KING) {
-        kings[color] = move.from;
-    }
-
-    // Reset lastDoublePawn
-    lastDoublePawn->x = -1;
-    lastDoublePawn->y = -1;
 }
 
 // Evaluation Functions
@@ -868,156 +820,103 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
 
 // Function to make a move on the board
 void makeEngineMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    int fromX = move.from.x;
-    int fromY = move.from.y;
-    int toX = move.to.x;
-    int toY = move.to.y;
-    
-    // Get the moving piece and its color
-    unsigned char piece = board[fromX][fromY];
-    unsigned char color = (piece & COLOR_MASK) >> 4;
-    unsigned char pieceType = piece & TYPE_MASK;
-    
-    // Remember the old piece at the destination (for restoration if needed)
-    unsigned char capturedPiece = board[toX][toY];
-    
-    // Handle the special case of en passant capture
-    if (pieceType == PAWN && fromY != toY && capturedPiece == 0) {
-        // This is an en passant capture
-        board[fromX][toY] = 0; // Remove the captured pawn
-    }
-    
-    // Handle special case of castling
-    if (pieceType == KING && abs(fromY - toY) > 1) {
-        // This is a castling move
-        if (toY > fromY) {
-            // Kingside castling
-            board[fromX][fromY + 1] = board[fromX][7]; // Move rook
-            board[fromX][7] = 0; // Remove rook from original position
-        } else {
-            // Queenside castling
-            board[fromX][fromY - 1] = board[fromX][0]; // Move rook
-            board[fromX][0] = 0; // Remove rook from original position
-        }
-    }
-    
-    // Update the piece's MODIFIER flag to indicate it has moved
-    board[fromX][fromY] |= MODIFIER;
-    
-    // Move the piece
-    board[toX][toY] = board[fromX][fromY];
-    board[fromX][fromY] = 0;
-    
-    // Handle pawn promotion
-    if (pieceType == PAWN && (toX == 0 || toX == 7)) {
-        // Default promote to queen
-        board[toX][toY] = (QUEEN | (color << 4) | MODIFIER);
-    }
-    
-    // Handle pawn double push (for en passant)
-    if (pieceType == PAWN && abs(fromX - toX) == 2) {
-        lastDoublePawn->x = toX;
-        lastDoublePawn->y = toY;
-    } else {
-        lastDoublePawn->x = -1;
-        lastDoublePawn->y = -1;
-    }
-
-    // Update king position if a king was moved
-    if (pieceType == KING) {
-        kingsPositions[color].x = toX;
-        kingsPositions[color].y = toY;
-    }
+    // Delegate to the main move function
+    engineMakeMove(board, move, lastDoublePawn, kingsPositions);
 }
 
-// Minimax algorithm with alpha-beta pruning
-int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maximizingPlayer, Vector2f* lastDoublePawn, Vector2f kingsPositions[], Move line[], int* lineLength) {
-    if (depth == 0) {
-        return evaluatePosition(board, maximizingPlayer ? 0 : 1);
+// Minimax with alpha-beta pruning, evaluating future outcomes
+int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool isMaximizingPlayer,
+            unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
+
+    // Terminal condition
+    if (depth == 0 || isGameOver(board, color, lastDoublePawn, kings)) {
+        return evaluatePosition(board, color); // Dynamic evaluation based on the position
     }
 
     MoveList moveList;
-    generateMoves(board, maximizingPlayer ? 0 : 1, &moveList, lastDoublePawn);
+    generateLegalMoves(board, color, &moveList, lastDoublePawn, kings);
 
-    // Check for checkmate or stalemate
     if (moveList.count == 0) {
-        Vector2f kingPos = kingsPositions[maximizingPlayer ? 0 : 1];
-        unsigned char color = maximizingPlayer ? 0 : 1;
-        if (isKingInCheck(board, kingPos, color)) {
-            return maximizingPlayer ? -100000 + depth : 100000 - depth;
-        } else {
-            return 0;
-        }
+        return evaluatePosition(board, color); // Handles checkmate/stalemate as part of eval
     }
 
-    int bestEval = maximizingPlayer ? INT_MIN : INT_MAX;
+    int bestScore = isMaximizingPlayer ? -100000 : 100000;
 
-    for (int i = 0; i < moveList.count; i++) {
+    for (int i = 0; i < moveList.count; ++i) {
         Move move = moveList.moves[i];
+
+        // Backup state
         unsigned char tempBoard[8][8];
         copyBoard(board, tempBoard);
-
         Vector2f tempLastDoublePawn = *lastDoublePawn;
-        Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
+        Vector2f tempKings[2] = {kings[0], kings[1]};
 
-        makeEngineMove(tempBoard, move, &tempLastDoublePawn, tempKingsPositions);
+        engineMakeMove(board, move, lastDoublePawn, kings);
 
-        Move childLine[MAX_PV_LENGTH];
-        int childLineLength = 0;
-        int eval = minimax(tempBoard, depth - 1, alpha, beta, !maximizingPlayer, &tempLastDoublePawn, tempKingsPositions, childLine, &childLineLength);
-        
-        // Store the principal variation if this is the best move so far
-        if ((maximizingPlayer && eval > bestEval) || (!maximizingPlayer && eval < bestEval)) {
-            storePV(line, move, childLine, childLineLength, lineLength);
-        }
+        // Alternate maximizing/minimizing and switch sides (XOR 0x10 flips color)
+        int score = minimax(board, depth - 1, alpha, beta, !isMaximizingPlayer, color ^ 0x10, lastDoublePawn, kings);
 
-        if (maximizingPlayer) {
-            bestEval = (eval > bestEval) ? eval : bestEval;
-            alpha = (alpha > eval) ? alpha : eval;
+        // Restore
+        copyBoard(tempBoard, board);
+        *lastDoublePawn = tempLastDoublePawn;
+        kings[0] = tempKings[0];
+        kings[1] = tempKings[1];
+
+        if (isMaximizingPlayer) {
+            if (score > bestScore) bestScore = score;
+            if (score > alpha) alpha = score;
         } else {
-            bestEval = (eval < bestEval) ? eval : bestEval;
-            beta = (beta < eval) ? beta : eval;
+            if (score < bestScore) bestScore = score;
+            if (score < beta) beta = score;
         }
 
-        if (beta <= alpha) break;
+        if (beta <= alpha)
+            break; // Prune
     }
 
-    return bestEval;
+    return bestScore;
 }
-// Function to find the best move for the current position
-Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+
+// Top-level function to get the best move using the full tree search
+Move findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
     MoveList moveList;
-    generateMoves(board, color, &moveList, lastDoublePawn);
-    
+    generateLegalMoves(board, color, &moveList, lastDoublePawn, kings);
+
     if (moveList.count == 0) {
-        // No legal moves
-        Move nullMove = {{-1, -1}, {-1, -1}, 0, false, 0};
-        return nullMove;
+        // No legal moves available
+        Move dummyMove = {{-1, -1}, {-1, -1}, 0, false, 0, false, 0};
+        return dummyMove;
     }
-    
-    int bestValue = (color == 0) ? INT_MIN : INT_MAX;
-    int bestMoveIndex = 0;
-    
-    for (int i = 0; i < moveList.count; i++) {
+
+    int bestScore = -100000;
+    Move bestMove = moveList.moves[0];
+
+    for (int i = 0; i < moveList.count; ++i) {
         Move move = moveList.moves[i];
+
+        // Backup
         unsigned char tempBoard[8][8];
         copyBoard(board, tempBoard);
         Vector2f tempLastDoublePawn = *lastDoublePawn;
-        Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
-        
-        makeEngineMove(tempBoard, move, &tempLastDoublePawn, tempKingsPositions);
-        
-        Move line[MAX_PV_LENGTH];
-        int lineLength = 0;
-        int moveValue = minimax(tempBoard, MAX_DEPTH - 1, INT_MIN, INT_MAX, color == 1, &tempLastDoublePawn, tempKingsPositions, line, &lineLength);
-        
-        if ((color == 0 && moveValue > bestValue) || (color == 1 && moveValue < bestValue)) {
-            bestValue = moveValue;
-            bestMoveIndex = i;
+        Vector2f tempKings[2] = {kings[0], kings[1]};
+
+        engineMakeMove(board, move, lastDoublePawn, kings);
+
+        int score = minimax(board, MAX_DEPTH - 1, -100000, 100000, false, color ^ 0x10, lastDoublePawn, kings);
+
+        // Undo
+        copyBoard(tempBoard, board);
+        *lastDoublePawn = tempLastDoublePawn;
+        kings[0] = tempKings[0];
+        kings[1] = tempKings[1];
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove = move;
         }
     }
-    
-    return moveList.moves[bestMoveIndex];
+
+    return bestMove;
 }
 
 // Function to check if the game is over (checkmate or stalemate)
@@ -1063,7 +962,7 @@ void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* l
     }
     
     // Find best move
-    Move bestMove = findBestMove(board, color, lastDoublePawn, kingsPositions);
+    Move bestMove = findBestMoveWithMinimax(board, color, lastDoublePawn, kingsPositions);
     
     if (bestMove.from.x != -1) {
         printf("Best move: %c%d to %c%d\n", 
@@ -1144,4 +1043,9 @@ void evaluateMovesSafety(unsigned char board[8][8], unsigned char color, MoveLis
         int safetyScore = evaluateMoveSafety(tempBoard, moveList->moves[i], color);
         moveList->moves[i].safetyScore = safetyScore;
     }
+}
+
+// Legacy wrapper for findBestMove to maintain compatibility
+Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+    return findBestMoveWithMinimax(board, color, lastDoublePawn, kingsPositions);
 }

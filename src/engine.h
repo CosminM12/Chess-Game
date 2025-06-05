@@ -14,7 +14,7 @@
 #define KING_VALUE 20000
 
 // Search parameters
-#define MAX_DEPTH 5
+#define MAX_DEPTH 3
 #define MAX_PV_LENGTH 64
 
 typedef struct {
@@ -43,9 +43,9 @@ bool isKingInCheck(unsigned char board[8][8], Vector2f kingPosition, unsigned ch
 bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned char attackerColor);
 
 // Search Functions
-int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maximizingPlayer, 
-            Vector2f* lastDoublePawn, Vector2f kings[], Move line[], int* lineLength);
-Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool isMaximizingPlayer,
+            unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+Move findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 
 // Evaluation System
 int evaluatePosition(unsigned char board[8][8], unsigned char color);
@@ -65,7 +65,6 @@ int quiescenceSearch(unsigned char board[8][8], int alpha, int beta, unsigned ch
 
 // Helper Functions
 void copyBoard(unsigned char src[8][8], unsigned char dst[8][8]);
-void storePV(Move line[], Move move, Move childLine[], int childLength, int* lineLength);
 bool isGameOver(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 void getScoreBar(int score, float* whitePercentage, float* blackPercentage);
 void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
