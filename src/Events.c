@@ -52,8 +52,8 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
     //check if any piece is captured
     bool capture = (board[destY][destX] & TYPE_MASK) != 0;
 
-    //copy piece to new location (only last 5 bits);
-    board[destY][destX] = (board[oldY][oldX] & 0x1F);
+    //copy piece to new location (preserve color and type)
+    board[destY][destX] = (board[oldY][oldX] & (TYPE_MASK | COLOR_MASK));
     
     //---Handle pawn special moves---
     if((board[destY][destX] & TYPE_MASK) == PAWN) {
@@ -92,10 +92,11 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
     pieceActions[0] = false;
     pieceActions[1] = false;
 
-    unsigned char color = board[destY][destX] & COLOR_MASK;
+    unsigned char color = (board[destY][destX] & COLOR_MASK) >> 4;
 
+    // Update king position if a king was moved
     if((board[destY][destX] & TYPE_MASK) == KING) {
-        if(color == COLOR_MASK) {
+        if(color == 1) {
             printf("Black ");
         }
         else {
@@ -106,7 +107,7 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
         kingsPositions[color].y = destX;
     }
 
-    unsigned int nextColor = (board[destY][destX] & COLOR_MASK) == 0 ? 1 : 0;
+    unsigned int nextColor = color == 0 ? 1 : 0;
 
     
     if(isCheck(board, kingsPositions[nextColor])) {
@@ -152,19 +153,48 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             if(board[squareY][squareX] != 0 && !opposingColor(board[squareY][squareX], *blackTurn)) {
                 selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
 
+                // Generate legal moves that don't put the king in check
                 generatePossibleMoves(board, squareY, squareX, lastDoublePawn);
+                
+                // Filter out moves that would leave the king in check
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if ((board[i][j] & MOVABLE_MASK) == MOVABLE_MASK) {
+                            // Create a move and check if it's legal
+                            Move move = {{squareY, squareX}, {i, j}, board[i][j], false, 0};
+                            unsigned char color = (board[squareY][squareX] & COLOR_MASK) >> 4;
+                            
+                            if (!isMoveLegal(board, move, color, lastDoublePawn)) {
+                                // Remove the movable flag if the move is illegal
+                                board[i][j] &= ~MOVABLE_MASK;
+                            }
+                        }
+                    }
+                }
             }
         }
         //A SELECTED PIECE  => TRY TO MOVE
         else {
-
             //VALID MOVE => MOVE PIECE
             if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
                 makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
                 *blackTurn = !(*blackTurn);
                 clearPossibleBoard(board);
+                
+                // Check for checkmate or stalemate after the move
+                unsigned char nextColor = *blackTurn ? 1 : 0;
+                MoveList moveList;
+                generateMoves(board, nextColor, &moveList, lastDoublePawn);
+                
+                if (moveList.count == 0) {
+                    // Check if the king is in check
+                    if (isCheck(board, kingsPositions[nextColor])) {
+                        printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
+                    } else {
+                        printf("Stalemate! Game is drawn.\n");
+                    }
+                }
             }
-
             //NOT VALID => CANCEL SELECT
             else { 
                // deselectPiece(board, selectedSquare, pieceActions);
@@ -185,9 +215,23 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             //different dest => MOVE or DESELECT
             else {
                 if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(board,squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
+                    makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
                     *blackTurn = !(*blackTurn);
                     clearPossibleBoard(board);
+                    
+                    // Check for checkmate or stalemate after the move
+                    unsigned char nextColor = *blackTurn ? 1 : 0;
+                    MoveList moveList;
+                    generateMoves(board, nextColor, &moveList, lastDoublePawn);
+                    
+                    if (moveList.count == 0) {
+                        // Check if the king is in check
+                        if (isCheck(board, kingsPositions[nextColor])) {
+                            printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
+                        } else {
+                            printf("Stalemate! Game is drawn.\n");
+                        }
+                    }
                 }
                 else {
                     deselectPiece(board, selectedSquare, pieceActions);
@@ -198,8 +242,23 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         //NOT HOLDING => 
         else {
           if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-            makeMove(board,squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
+            makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
             *blackTurn = !(*blackTurn);
+            clearPossibleBoard(board);
+            
+            // Check for checkmate or stalemate after the move
+            unsigned char nextColor = *blackTurn ? 1 : 0;
+            MoveList moveList;
+            generateMoves(board, nextColor, &moveList, lastDoublePawn);
+            
+            if (moveList.count == 0) {
+                // Check if the king is in check
+                if (isCheck(board, kingsPositions[nextColor])) {
+                    printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
+                } else {
+                    printf("Stalemate! Game is drawn.\n");
+                }
+            }
             }
             else {
                 deselectPiece(board, selectedSquare, pieceActions);

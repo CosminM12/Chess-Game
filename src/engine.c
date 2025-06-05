@@ -145,12 +145,12 @@ int evaluatePosition(unsigned char board[8][8]) {
 
             //Table coords (mirrored for black)
             int row = (color == 1) ? 7 - i : i;
-            int col = (color == 1) ? 7-j : i;
+            int col = (color == 1) ? 7 - j : j;
 
             switch(piece) {
                 case PAWN:
                     value = PAWN_VALUE;
-                    positionValue = pawnTable[i][j];
+                    positionValue = pawnTable[row][col];
                     break;
                 case KNIGHT:
                     value = KNIGHT_VALUE;
@@ -294,7 +294,7 @@ void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn) 
     board[move.from.x][move.from.y] = board[move.to.x][move.to.y];
     
     // Restore the captured piece
-    board[move.to.x][move.to.x] = move.capturedPiece;
+    board[move.to.x][move.to.y] = move.capturedPiece;
     
     // Reset lastDoublePawn to previous state (would need to be tracked in a more complex way for a real engine)
     lastDoublePawn->x = -1;

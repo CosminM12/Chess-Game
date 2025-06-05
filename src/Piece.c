@@ -179,8 +179,7 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
 
     unsigned char color = (board[kingX][kingY] & COLOR_MASK) >> 4;
     unsigned char enemyColor = (board[kingX][kingY] & COLOR_MASK) ^ COLOR_MASK;
-    printf("Color: 0x%X, enemyColor: 0x%X\n", color, enemyColor);
-
+    
     int pawnDY[2] = {-1, 1};
 
     int knightDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
@@ -203,8 +202,6 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
             newY = kingY + pawnDY[i];
             if(inBounds(newY)) {
                 if((board[newX][newY] & TYPE_MASK) == PAWN && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                    printf("Dir=%d, dy[i]=%d\n", direction, pawnDY[i]);
-                    printf("\nPawn threat(%d, %d): ", newX, newY);
                     return true;
                 }
             }
@@ -217,7 +214,6 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
         newY = kingY + knightDY[i];
         if(inBounds(newX) && inBounds(newY)) {
             if((board[newX][newY] & TYPE_MASK) == KNIGHT && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                printf("\nKnight threat: ");
                 return true;
             }
         }
@@ -232,7 +228,6 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
             pieceType = board[newX][newY] & TYPE_MASK;
             if(pieceType != 0) {
                 if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == BISHOP || pieceType == QUEEN)) {
-                    printf("\nDiagonal threat: ");
                     return true;
                 }
                 
@@ -254,7 +249,6 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
             pieceType = board[newX][newY] & TYPE_MASK;
             if(pieceType != 0) {
                 if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == ROOK || pieceType == QUEEN)) {
-                    printf("\nLine threat(%d, %d): ", newX, newY);
                     return true;
                 }
 
@@ -274,7 +268,6 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
             newY = kingY + dy;
             if(inBounds(newX) && inBounds(newY)) {
                 if((board[newX][newY] & TYPE_MASK) == KING && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                    printf("\nKing threat: ");
                     return true;
                 }
             }

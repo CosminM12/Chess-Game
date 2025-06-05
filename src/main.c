@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
-// #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_ttf.h>
 // #include <SDL2/SDL_mixer.h>
 
 #include "RenderWindow.h"
@@ -42,6 +42,10 @@ bool init() {
     }
     if(!(IMG_Init(IMG_INIT_PNG))) {
         printf("IMG_Init has failed. Error: %s\n", SDL_GetError());
+    }
+    if(TTF_Init() == -1) {
+        printf("TTF_Init has failed. Error: %s\n", TTF_GetError());
+        return false;
     }
 
     return true;
@@ -86,6 +90,31 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     SDL_Rect borderRect = {barX, barY, barWidth, barHeight};
     SDL_RenderDrawRect(renderer, &borderRect);
     
+    // Draw evaluation value
+    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20);
+    if (font) {
+        char scoreText[32];
+        snprintf(scoreText, sizeof(scoreText), "%.2f", score / 100.0f);
+        
+        SDL_Color textColor = {255, 255, 255, 255};
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, scoreText, textColor);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if (textTexture) {
+                SDL_Rect textRect = {
+                    barX - 50,  // Position to the left of the bar
+                    barY + barHeight + 5,  // Below the bar
+                    textSurface->w,
+                    textSurface->h
+                };
+                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                SDL_DestroyTexture(textTexture);
+            }
+            SDL_FreeSurface(textSurface);
+        }
+        TTF_CloseFont(font);
+    }
+    
     // Reset render color
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 }
@@ -103,8 +132,62 @@ void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* last
             
             makeEngineMove(board, bestMove, lastDoublePawn);
             *blackTurn = !*blackTurn;
+            
+            // Check for checkmate or stalemate after the move
+            unsigned char nextColor = *blackTurn ? 1 : 0;
+            MoveList moveList;
+            generateMoves(board, nextColor, &moveList, lastDoublePawn);
+            
+            if (moveList.count == 0) {
+                // Check if the king is in check
+                if (isCheck(board, kingsPositions[nextColor])) {
+                    printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
+                } else {
+                    printf("Stalemate! Game is drawn.\n");
+                }
+            }
         }
     }
+}
+
+// Function to draw game status text (check, checkmate, stalemate)
+void drawGameStatus(SDL_Renderer* renderer, bool isInCheck, bool isGameOver, bool isStalemate, bool blackTurn) {
+    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24);
+    if (!font) return;
+    
+    SDL_Color textColor = {255, 0, 0, 255}; // Red for check/checkmate
+    if (isStalemate) textColor = (SDL_Color){255, 255, 0, 255}; // Yellow for stalemate
+    
+    char statusText[32] = "";
+    if (isGameOver) {
+        if (isStalemate) {
+            strcpy(statusText, "Stalemate! Draw");
+        } else {
+            sprintf(statusText, "Checkmate! %s wins", blackTurn ? "White" : "Black");
+        }
+    } else if (isInCheck) {
+        sprintf(statusText, "%s is in Check", blackTurn ? "Black" : "White");
+    }
+    
+    if (statusText[0] != '\0') {
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, statusText, textColor);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if (textTexture) {
+                SDL_Rect textRect = {
+                    (screenWidth - textSurface->w) / 2,
+                    10,  // Top of the screen
+                    textSurface->w,
+                    textSurface->h
+                };
+                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                SDL_DestroyTexture(textTexture);
+            }
+            SDL_FreeSurface(textSurface);
+        }
+    }
+    
+    TTF_CloseFont(font);
 }
 
 int main(int argc, char* argv[]) {
@@ -163,6 +246,11 @@ int main(int argc, char* argv[]) {
     printf("A - Toggle position analysis\n");
     printf("S - Show evaluation bar\n");
     
+    // Game state variables for check/checkmate/stalemate
+    bool isInCheck = false;
+    bool isGameOver = false;
+    bool isStalemate = false;
+    
     while(gameRunning) {
         //==========Find time variables==========//
         lastTick = currentTick;
@@ -211,6 +299,16 @@ int main(int argc, char* argv[]) {
         // Update the current score
         currentScore = getRelativeScore(board);
         
+        // Check for check, checkmate, or stalemate
+        unsigned char currentColor = blackTurn ? 1 : 0;
+        isInCheck = isCheck(board, kingsPositions[currentColor]);
+        
+        MoveList moveList;
+        generateMoves(board, currentColor, &moveList, &lastDoublePushPawn);
+        
+        isGameOver = moveList.count == 0;
+        isStalemate = isGameOver && !isInCheck;
+        
         //==========Render Visuals==========//
         clear(&renderer);
         drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, board);
@@ -223,6 +321,10 @@ int main(int argc, char* argv[]) {
                 renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
             }
         } 
+        
+        // Draw game status
+        drawGameStatus(renderer, isInCheck, isGameOver, isStalemate, blackTurn);
+        
         display(&renderer);
         
         // Show analysis if requested
@@ -242,7 +344,6 @@ int main(int argc, char* argv[]) {
     //     printf("%s\n", exportString);
     // }
 
-    cleanUp(window);
     printf("Program ended\n");
     return 0;
 }

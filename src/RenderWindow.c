@@ -102,5 +102,6 @@ void clear(SDL_Renderer** renderer) {
 }
 
 void cleanUp(SDL_Window* window) {
+    TTF_Quit();
     SDL_DestroyWindow(window);
 }

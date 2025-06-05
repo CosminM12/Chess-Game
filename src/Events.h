@@ -2,6 +2,7 @@
 #define EVENTS_H
 
 #include "util.h"
+#include "engine.h"
 
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]);
 
