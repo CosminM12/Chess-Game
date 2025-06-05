@@ -216,6 +216,28 @@ int main() {
         getEvents(event, &gameState, &moveHistoryScrollOffset);
         SDL_GetMouseState(&mouseX, &mouseY);
 
+        // --- NEW CODE STARTS HERE ---
+        // Define positions for your Save and Load buttons (ensure these match your rendering in RenderWindow.c or main.c)
+        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 130, 40};
+        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 130, 40};
+
+        if (gameState.mouseActions[0]) { // Check for a left mouse button down event
+            // Check if Save Game button was clicked
+            if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
+                mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
+                printf("Save Game button clicked!\n"); // Debug print, keep for now
+                // Call your save function
+                saveGameToFile(&gameState, "saved_game.txt");
+            }
+                // Check if Load Game button was clicked
+            else if (mouseX >= loadButton.x && mouseX <= loadButton.x + loadButton.w &&
+                     mouseY >= loadButton.y && mouseY <= loadButton.y + loadButton.h) {
+                printf("Load Game button clicked!\n"); // Debug print, keep for now
+                // Call your load function
+                loadGameFromFile(&gameState, "saved_game.txt");
+            }
+        }
+
         if (mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
 //            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn,
 //                             &selectedSquare, &lastDoublePushPawn, kingsPositions);
@@ -308,6 +330,16 @@ int main() {
                            boardWidth + sidebar1_width + 15, y);
             }
         }
+
+
+        SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
+        SDL_RenderFillRect(renderer, &saveButton);
+        renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 10);
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
+        SDL_RenderFillRect(renderer, &loadButton);
+        renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 10);
+
 
 
 //        for (int i = 0; i < moveCount; ++i) {

@@ -225,6 +225,19 @@ void handleMouseInput(GameState *state, int mouseX, int mouseY) {
 //                clearPossibleBoard(state->board);
             }
         }
+
+        if (mouseX >= (boardWidth + 10) && mouseX <= (boardWidth + 10 + 130) &&
+            mouseY >= (screenHeight - 140) && mouseY <= (screenHeight - 140 + 40)) {
+            printf("Save Game button clicked!\n"); // ADD THIS LINE
+            saveGameToFile(state, "saved_game.txt"); // This should be called here
+        }
+            // Check if Load Game button was clicked
+        else if (mouseX >= (boardWidth + 160) && mouseX <= (boardWidth + 160 + 130) &&
+                 mouseY >= (screenHeight - 140) && mouseY <= (screenHeight - 140 + 40)) {
+            printf("Load Game button clicked!\n"); // ADD THIS LINE
+            loadGameFromFile(state, "saved_game.txt"); // This should be called here
+        }
+
     } else if (state->mouseActions[1]) { // MOUSE RELEASED
         if (state->pieceActions[1]) { // HOLDING PIECE
             if (squareX == state->selectedSquare.x && squareY == state->selectedSquare.y) {
