@@ -127,9 +127,9 @@ void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* last
         Move bestMove = findBestMove(board, color, lastDoublePawn, kingsPositions);
         
         if (bestMove.from.x != -1) {
-            printf("Computer plays: %c%d to %c%d\n", 
-                'a' + bestMove.from.y, 8 - bestMove.from.x,
-                'a' + bestMove.to.y, 8 - bestMove.to.x);
+            //printf("Computer plays: %c%d to %c%d\n", 
+            //    'a' + bestMove.from.y, 8 - bestMove.from.x,
+            //    'a' + bestMove.to.y, 8 - bestMove.to.x);
             
             makeEngineMove(board, bestMove, lastDoublePawn, kingsPositions);
             *blackTurn = !*blackTurn;

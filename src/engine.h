@@ -46,6 +46,7 @@ bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned cha
 int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool isMaximizingPlayer,
             unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 Move findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 
 // Evaluation System
 int evaluatePosition(unsigned char board[8][8], unsigned char color);
