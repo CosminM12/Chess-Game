@@ -22,6 +22,7 @@ SDL_Color color_light = {240, 240, 240, 255};
 SDL_Color color_dark = {119, 149, 86, 255};
 SDL_Color color_clicked = {248, 255, 41, 145};
 SDL_Color color_possible = {200, 20, 20, 255};
+SDL_Color color_risky = {255, 128, 0, 255}; // Orange color for risky moves
 
 const int screenWidth=1200, screenHeight=800;
 const int squareSize=100;
@@ -130,7 +131,7 @@ void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* last
                 'a' + bestMove.from.y, 8 - bestMove.from.x,
                 'a' + bestMove.to.y, 8 - bestMove.to.x);
             
-            makeEngineMove(board, bestMove, lastDoublePawn);
+            makeEngineMove(board, bestMove, lastDoublePawn, kingsPositions);
             *blackTurn = !*blackTurn;
             
             // Check for checkmate or stalemate after the move
@@ -190,6 +191,63 @@ void drawGameStatus(SDL_Renderer* renderer, bool isInCheck, bool isGameOver, boo
     TTF_CloseFont(font);
 }
 
+// Function to analyze the current position for display
+void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+    // Evaluate the current position
+    unsigned char currentColor = blackTurn ? 1 : 0;
+    int score = evaluatePosition(board, currentColor);
+    
+    printf("Current evaluation: %.2f\n", score / 100.0f);
+    
+    // Generate and evaluate legal moves
+    MoveList legalMoves;
+    generateMoves(board, currentColor, &legalMoves, lastDoublePawn);
+    
+    if (legalMoves.count == 0) {
+        if (isCheck(board, kingsPositions[currentColor])) {
+            printf("Checkmate! %s wins!\n", blackTurn ? "White" : "Black");
+        } else {
+            printf("Stalemate! Game is drawn.\n");
+        }
+        return;
+    }
+    
+    // Evaluate move safety
+    evaluateMovesSafety(board, currentColor, &legalMoves);
+    
+    // Find any risky moves
+    bool hasRiskyMoves = false;
+    for (int i = 0; i < legalMoves.count; i++) {
+        if (legalMoves.moves[i].safetyScore < 0) {
+            if (!hasRiskyMoves) {
+                printf("Risky moves detected:\n");
+                hasRiskyMoves = true;
+            }
+            
+            // Convert board coordinates to algebraic notation
+            char fromFile = 'a' + legalMoves.moves[i].from.y;
+            int fromRank = 8 - legalMoves.moves[i].from.x;
+            char toFile = 'a' + legalMoves.moves[i].to.y;
+            int toRank = 8 - legalMoves.moves[i].to.x;
+            
+            unsigned char pieceType = board[legalMoves.moves[i].from.x][legalMoves.moves[i].from.y] & TYPE_MASK;
+            const char* pieceName = "Unknown";
+            switch (pieceType) {
+                case PAWN: pieceName = "Pawn"; break;
+                case KNIGHT: pieceName = "Knight"; break;
+                case BISHOP: pieceName = "Bishop"; break;
+                case ROOK: pieceName = "Rook"; break;
+                case QUEEN: pieceName = "Queen"; break;
+                case KING: pieceName = "King"; break;
+            }
+            
+            printf("  %s %c%d -> %c%d: Risk score %d\n", 
+                   pieceName, fromFile, fromRank, toFile, toRank, 
+                   legalMoves.moves[i].safetyScore);
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
     //==========Program Initialization==========//
     bool SDLInit = init();
@@ -237,6 +295,7 @@ int main(int argc, char* argv[]) {
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
     placePieces(board, input);
+    initCastlingRights(board); // Initialize castling rights (sets MODIFIER flags)
     findKings(board, kingsPositions); //Initialize kings positions
     
     // Print instructions
@@ -276,7 +335,7 @@ int main(int argc, char* argv[]) {
             if (!keyboardState[SDL_SCANCODE_A]) {
                 showAnalysis = !showAnalysis;
                 if (showAnalysis) {
-                    analyzePosition(board, blackTurn ? 1 : 0, &lastDoublePushPawn, kingsPositions);
+                    displayPositionAnalysis(board, blackTurn, &lastDoublePushPawn, kingsPositions);
                 }
                 printf("Analysis %s\n", showAnalysis ? "enabled" : "disabled");
             }
@@ -311,7 +370,7 @@ int main(int argc, char* argv[]) {
         
         //==========Render Visuals==========//
         clear(&renderer);
-        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, board);
+        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, board);
         
         // Draw evaluation bar
         drawEvaluationBar(renderer, currentScore);
@@ -329,20 +388,10 @@ int main(int argc, char* argv[]) {
         
         // Show analysis if requested
         if (showAnalysis) {
-            analyzePosition(board, blackTurn ? 1 : 0, &lastDoublePushPawn, kingsPositions);
+            displayPositionAnalysis(board, blackTurn, &lastDoublePushPawn, kingsPositions);
             showAnalysis = false; // Only show once per request
         }
     }
-
-    char *exportString = NULL;
-
-    // exportPosition(board, &exportString);
-    // if(exportString == NULL) {
-    //     printf("Error exporting position!\n");
-    // }
-    // else {
-    //     printf("%s\n", exportString);
-    // }
 
     printf("Program ended\n");
     return 0;

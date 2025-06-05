@@ -1,9 +1,9 @@
 #ifndef RENDERWINDOW_H
 #define RENDERWINDOW_H
 
-bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** renderer, int screenWidth, int screenHeight);
+bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** renderer, int screenWidth, int screenHeight);
 
-void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, unsigned char board[8][8]);
+void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]);
 
 SDL_Texture* loadTexture(const char* p_filePath, SDL_Renderer** renderer);
 

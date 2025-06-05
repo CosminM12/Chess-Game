@@ -13,6 +13,24 @@
 =INITIALIZATION FUNCTIONS=
 ==========================
 */
+void initCastlingRights(unsigned char board[8][8]) {
+    // Set the MODIFIER flag on kings and rooks for castling rights
+    // This should be called only once at the start of the game
+    for(int i=0;i<8;i++) {
+        for(int j=0;j<8;j++) {
+            // Initialize kings
+            if((board[i][j] & TYPE_MASK) == KING) {
+                board[i][j] |= MODIFIER; // Set MODIFIER for castling
+            }
+            
+            // Initialize rooks for castling
+            if((board[i][j] & TYPE_MASK) == ROOK) {
+                board[i][j] |= MODIFIER; // Set MODIFIER for castling
+            }
+        }
+    }
+}
+
 void loadPieceTextures(SDL_Texture* textures[2][7], SDL_Renderer** renderer) {
     textures[0][0] = NULL;
     textures[0][1] = loadTexture("../res/Pawn_white.png", renderer);
@@ -149,17 +167,19 @@ void exportPosition(unsigned char board[8][8], char **exportString) {
 
 void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
     int foundKings = 0;
+    
+    // Find king positions without modifying any flags
+    // This prevents resetting castling rights each time this function is called
     for(int i=0;i<8;i++) {
         for(int j=0;j<8;j++) {
+            // Find kings and update positions
             if((board[i][j] & TYPE_MASK) == KING) {
-                board[i][j] |= MODIFIER; //Initialize ability to castle
-
-                foundKings++;
+                // Get king color and update its position
                 unsigned int color = (board[i][j] & COLOR_MASK) >> 4;
-                
                 kingsPositions[color].x = i;
                 kingsPositions[color].y = j;
                 
+                foundKings++;
                 if(foundKings == 2) {
                     return;
                 }
@@ -173,108 +193,21 @@ void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
 =       CHECKERS         =
 ==========================
 */
-bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
-    int kingX = kingPosition.x;
-    int kingY = kingPosition.y;
-
-    unsigned char color = (board[kingX][kingY] & COLOR_MASK) >> 4;
-    unsigned char enemyColor = (board[kingX][kingY] & COLOR_MASK) ^ COLOR_MASK;
+bool isCheck(unsigned char board[8][8], Vector2f kingPos) {
+    int kingX = kingPos.x;
+    int kingY = kingPos.y;
     
-    int pawnDY[2] = {-1, 1};
-
-    int knightDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
-    int knightDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
-
-    int diagDX[4] = {-1, -1,  1,  1};
-    int diagDY[4] = {-1,  1, -1,  1};
-
-    int lineDX[4] = {-1,  0,  0,  1};
-    int lineDY[4] = { 0, -1,  1,  0};
-
-    int newX, newY;
-    unsigned char pieceType;
-
-    //I. Pawn threat
-    int direction = (enemyColor == 1) ? -1 : 1;
-    newX = kingX + direction;
-    if(inBounds(newX)) {
-        for(int i=0;i<2;i++) {
-            newY = kingY + pawnDY[i];
-            if(inBounds(newY)) {
-                if((board[newX][newY] & TYPE_MASK) == PAWN && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                    return true;
-                }
-            }
-        }
+    // Check if the position is even a king
+    if ((board[kingX][kingY] & TYPE_MASK) != KING) {
+        return false;
     }
-
-    //II. Knight threat
-    for(int i=0;i<8;i++) {
-        newX = kingX + knightDX[i];
-        newY = kingY + knightDY[i];
-        if(inBounds(newX) && inBounds(newY)) {
-            if((board[newX][newY] & TYPE_MASK) == KNIGHT && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                return true;
-            }
-        }
-    }
-
-    //III. Diagonal threat (bishop / queen)
-    for(int i=0;i<4;i++) {
-        newX = kingX + diagDX[i];
-        newY = kingY + diagDY[i];
-
-        while(inBounds(newX) && inBounds(newY)) {
-            pieceType = board[newX][newY] & TYPE_MASK;
-            if(pieceType != 0) {
-                if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == BISHOP || pieceType == QUEEN)) {
-                    return true;
-                }
-                
-                //exit if there is another piece on diagonal
-                break;
-            }
-
-            newX += diagDX[i];
-            newY += diagDY[i];
-        }
-    }
-
-    //IV. Line threats (rook / queen)
-    for(int i=0;i<4;i++) {
-        newX = kingX + lineDX[i];
-        newY = kingY + lineDY[i];
-
-        while(inBounds(newX) && inBounds(newY)) {
-            pieceType = board[newX][newY] & TYPE_MASK;
-            if(pieceType != 0) {
-                if((board[newX][newY] & COLOR_MASK) == enemyColor && (pieceType == ROOK || pieceType == QUEEN)) {
-                    return true;
-                }
-
-                //exit if there is another piece on line
-                break;
-            }
-
-            newX += lineDX[i];
-            newY += lineDY[i];
-        }
-    }
-
-    //V. King threat (for possible moves)
-    for(int dx=-1;dx<2;dx++) {
-        for(int dy=-1;dy<2;dy++) {
-            newX = kingX + dx;
-            newY = kingY + dy;
-            if(inBounds(newX) && inBounds(newY)) {
-                if((board[newX][newY] & TYPE_MASK) == KING && (board[newX][newY] & COLOR_MASK) == enemyColor) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
+    
+    // Get the color of the opponent
+    unsigned char kingColor = (board[kingX][kingY] & COLOR_MASK) >> 4;
+    unsigned char opponentColor = 1 - kingColor;
+    
+    // Check if any enemy piece can attack the king's position
+    return isSquareAttacked(board, kingPos, opponentColor);
 }
 
 //Checks if calc position is on board
@@ -350,7 +283,7 @@ void generateAllPossibleMoves(unsigned char board[8][8], unsigned char color, Ve
 void clearPossibleBoard(unsigned char board[8][8]) {
     for(int i=0;i<8;i++) {
         for(int j=0;j<8;j++) {
-            board[i][j] = board[i][j] & (~MOVABLE_MASK);
+            board[i][j] = board[i][j] & (~MOVABLE_MASK) & (~RISKY_MOVE_MASK);
         }
     }
 }
@@ -392,8 +325,14 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
             //------En passant------
             for(int i=0;i<2;i++) {
                 newY = y + dy[i];
-                if((board[x][newY] & TYPE_MASK) == PAWN && x == (int)(*lastDoublePawn).y && newY == (int)(*lastDoublePawn).x && opposingColor(board[x][newY], color)) {
-                    board[newX][newY] |= MOVABLE_MASK;
+                if(inBounds(newY)) {
+                    // Check if there's a pawn next to us and if it made a double move last turn
+                    if((board[x][newY] & TYPE_MASK) == PAWN && 
+                       opposingColor(board[x][newY], color) &&
+                       lastDoublePawn->x == newY && lastDoublePawn->y == x) {
+                        // Mark the square behind the pawn as a valid capture square
+                        board[newX][newY] |= MOVABLE_MASK;
+                    }
                 }
             }
 
@@ -416,8 +355,9 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
             break;
             
         case BISHOP:
-            int diagDX[4] = {-1, -1,  1, 1};
-            int diagDY[4] = {-1,  1, -1, 1};
+            // Diagonal directions: top-left, top-right, bottom-left, bottom-right
+            int diagDX[4] = {-1, -1,  1,  1};
+            int diagDY[4] = {-1,  1, -1,  1};
             generateLongMoves(board, x, y, diagDX, diagDY, color, 4);
             break;
 
@@ -437,6 +377,63 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
             int kingDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
             int kingDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
             generateStepMoves(board, x, y, kingDX, kingDY, color, 8);
+            
+            // Check for castling possibilities
+            // King must not have moved before (MODIFIER flag must be set during initialization and cleared on first move)
+            if ((board[x][y] & MODIFIER) != 0) {
+                // Get king's color
+                unsigned char kingColor = (board[x][y] & COLOR_MASK) >> 4;
+                unsigned char enemyColor = 1 - kingColor;
+                
+                // Check kingside castling (short castle)
+                if (y + 3 < 8 && 
+                    (board[x][y+3] & TYPE_MASK) == ROOK && 
+                    (board[x][y+3] & COLOR_MASK) == (board[x][y] & COLOR_MASK) &&
+                    (board[x][y+3] & MODIFIER) != 0 &&  // Rook must not have moved
+                    (board[x][y+1] & TYPE_MASK) == 0 && 
+                    (board[x][y+2] & TYPE_MASK) == 0) {
+                    
+                    // Check if king is in check
+                    Vector2f kingPos = {x, y};
+                    if (!isSquareAttacked(board, kingPos, enemyColor)) {
+                        // Check if the square the king passes through is under attack
+                        Vector2f passThrough = {x, y+1};
+                        if (!isSquareAttacked(board, passThrough, enemyColor)) {
+                            // Check if the destination square is under attack
+                            Vector2f destination = {x, y+2};
+                            if (!isSquareAttacked(board, destination, enemyColor)) {
+                                // King can castle kingside
+                                board[x][y+2] |= MOVABLE_MASK;
+                            }
+                        }
+                    }
+                }
+                
+                // Check queenside castling (long castle)
+                if (y - 4 >= 0 && 
+                    (board[x][y-4] & TYPE_MASK) == ROOK && 
+                    (board[x][y-4] & COLOR_MASK) == (board[x][y] & COLOR_MASK) &&
+                    (board[x][y-4] & MODIFIER) != 0 &&  // Rook must not have moved
+                    (board[x][y-1] & TYPE_MASK) == 0 && 
+                    (board[x][y-2] & TYPE_MASK) == 0 && 
+                    (board[x][y-3] & TYPE_MASK) == 0) {
+                    
+                    // Check if king is in check
+                    Vector2f kingPos = {x, y};
+                    if (!isSquareAttacked(board, kingPos, enemyColor)) {
+                        // Check if the square the king passes through is under attack
+                        Vector2f passThrough = {x, y-1};
+                        if (!isSquareAttacked(board, passThrough, enemyColor)) {
+                            // Check if the destination square is under attack
+                            Vector2f destination = {x, y-2};
+                            if (!isSquareAttacked(board, destination, enemyColor)) {
+                                // King can castle queenside
+                                board[x][y-2] |= MOVABLE_MASK;
+                            }
+                        }
+                    }
+                }
+            }
             break;
     }
 }

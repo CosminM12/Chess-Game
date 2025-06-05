@@ -45,23 +45,44 @@ void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pie
     (*selectedSquare).y = squareY;
 }
 
-void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[], bool* blackTurn) {
     int oldX = (*sourceSquare).x;
     int oldY = (*sourceSquare).y;
 
     //check if any piece is captured
     bool capture = (board[destY][destX] & TYPE_MASK) != 0;
 
+    unsigned char pieceType = board[oldY][oldX] & TYPE_MASK;
+    unsigned char color = (board[oldY][oldX] & COLOR_MASK) >> 4;
+    
+    // Check if we are dealing with a king or rook to track castling rights
+    bool isKing = (pieceType == KING);
+    bool isRook = (pieceType == ROOK);
+    
+    // For kings and rooks, always clear the MODIFIER flag to mark they've moved
+    if (isKing || isRook) {
+        // Clear the MODIFIER flag from the piece before moving it
+        board[oldY][oldX] &= ~MODIFIER;
+    }
+    
     //copy piece to new location (preserve color and type)
     board[destY][destX] = (board[oldY][oldX] & (TYPE_MASK | COLOR_MASK));
     
-    //---Handle pawn special moves---
-    if((board[destY][destX] & TYPE_MASK) == PAWN) {
-
-        //Set modifier (pawn can't double push anymore) 
+    // For KING and ROOK, ensure MODIFIER flag is cleared after copying
+    // This permanently disallows castling with this piece
+    if (pieceType == KING || pieceType == ROOK) {
+        // Clear the MODIFIER flag (set it to 0)
+        board[destY][destX] &= ~MODIFIER;
+    }
+    // For other pieces that use MODIFIER (like pawns), set it
+    else if (pieceType == PAWN) {
         board[destY][destX] |= MODIFIER;
-
-        
+    }
+    
+    //---Handle special moves---
+    
+    // Pawn special moves
+    if(pieceType == PAWN) {
         //double pawn push =>  remember for 'En passant'
         if(abs(destY - oldY) == 2) {
             (*lastDoublePawn).x = destX;
@@ -81,38 +102,57 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
             (*lastDoublePawn).y = -1.0f;
         }
     }
-
-    //delete from old position
-    board[oldY][oldX] = 0;
-
-    //delte selected square
-    (*sourceSquare).x = -1.0f;
-    (*sourceSquare).y = -1.0f;
-
-    pieceActions[0] = false;
-    pieceActions[1] = false;
-
-    unsigned char color = (board[destY][destX] & COLOR_MASK) >> 4;
-
-    // Update king position if a king was moved
-    if((board[destY][destX] & TYPE_MASK) == KING) {
+    // King special moves
+    else if(pieceType == KING) {
+        // Handle castling
+        if(abs(destX - oldX) == 2) {
+            // Kingside castling (short castle)
+            if(destX > oldX) {
+                // Move the rook from the kingside to its new position
+                // Clear the MODIFIER flag on the rook too
+                board[destY][destX-1] = (ROOK | (board[destY][destX] & COLOR_MASK));
+                board[destY][7] = 0; // Remove the rook from its original position
+            }
+            // Queenside castling (long castle)
+            else {
+                // Move the rook from the queenside to its new position
+                // Clear the MODIFIER flag on the rook too
+                board[destY][destX+1] = (ROOK | (board[destY][destX] & COLOR_MASK));
+                board[destY][0] = 0; // Remove the rook from its original position
+            }
+        }
+        
+        // Update king position
+        kingsPositions[color].x = destY;
+        kingsPositions[color].y = destX;
+        
         if(color == 1) {
             printf("Black ");
         }
         else {
             printf("White ");
         }
-        printf("kings has moved!\n");
-        kingsPositions[color].x = destY;
-        kingsPositions[color].y = destX;
+        printf("king has moved!\n");
     }
 
-    unsigned int nextColor = color == 0 ? 1 : 0;
+    //delete from old position
+    board[oldY][oldX] = 0;
 
+    //delete selected square
+    (*sourceSquare).x = -1.0f;
+    (*sourceSquare).y = -1.0f;
+
+    pieceActions[0] = false;
+    pieceActions[1] = false;
+
+    unsigned int nextColor = color == 0 ? 1 : 0;
     
     if(isCheck(board, kingsPositions[nextColor])) {
         printf("In check!\n");
     }
+    
+    // Analyze the new position for the next player
+    displayPositionAnalysis(board, *blackTurn, lastDoublePawn, kingsPositions);
 }
 
 void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]) {
@@ -156,19 +196,47 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
                 // Generate legal moves that don't put the king in check
                 generatePossibleMoves(board, squareY, squareX, lastDoublePawn);
                 
+                // Collect all possible moves in a MoveList for safety evaluation
+                MoveList possibleMoves;
+                possibleMoves.count = 0;
+                
                 // Filter out moves that would leave the king in check
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if ((board[i][j] & MOVABLE_MASK) == MOVABLE_MASK) {
                             // Create a move and check if it's legal
-                            Move move = {{squareY, squareX}, {i, j}, board[i][j], false, 0};
+                            bool hasModifier = (board[squareY][squareX] & MODIFIER) != 0;
+                            Move move = {{squareY, squareX}, {i, j}, board[i][j], false, 0, hasModifier, 0};
                             unsigned char color = (board[squareY][squareX] & COLOR_MASK) >> 4;
                             
-                            if (!isMoveLegal(board, move, color, lastDoublePawn)) {
+                            if (!isMoveLegal(board, move, color, lastDoublePawn, kingsPositions)) {
                                 // Remove the movable flag if the move is illegal
                                 board[i][j] &= ~MOVABLE_MASK;
                             }
+                            else {
+                                // Add to our list of legal moves
+                                possibleMoves.moves[possibleMoves.count++] = move;
+                            }
                         }
+                    }
+                }
+                
+                // Evaluate the safety of all legal moves
+                unsigned char color = (*blackTurn) ? 1 : 0;
+                evaluateMovesSafety(board, color, &possibleMoves);
+                
+                // Highlight risky moves with a different color or display warnings
+                for (int i = 0; i < possibleMoves.count; i++) {
+                    Move move = possibleMoves.moves[i];
+                    int x = move.to.x;
+                    int y = move.to.y;
+                    
+                    // Mark risky moves with a special flag
+                    if (move.safetyScore < 0) {
+                        // Set a custom flag for risky moves
+                        board[x][y] |= RISKY_MOVE_MASK;
+                        printf("Warning: Moving to %d,%d is risky (score: %d)\n", 
+                               y, x, move.safetyScore);
                     }
                 }
             }
@@ -177,7 +245,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         else {
             //VALID MOVE => MOVE PIECE
             if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
+                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
                 *blackTurn = !(*blackTurn);
                 clearPossibleBoard(board);
                 
@@ -215,7 +283,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
             //different dest => MOVE or DESELECT
             else {
                 if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
+                    makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
                     *blackTurn = !(*blackTurn);
                     clearPossibleBoard(board);
                     
@@ -242,7 +310,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
         //NOT HOLDING => 
         else {
           if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-            makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions);
+            makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
             *blackTurn = !(*blackTurn);
             clearPossibleBoard(board);
             

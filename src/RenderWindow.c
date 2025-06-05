@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdbool.h>
 
 #include "RenderWindow.h"
@@ -21,7 +22,7 @@ bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** render
     return true;
 }
 
-void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, unsigned char board[8][8]) {
+void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
     int boardOffset = (screenWidth - squareSize*8) / 2;
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
@@ -30,12 +31,17 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
             SDL_Color currentColor = ((row + col) % 2 == 0) ? color1 : color2;
             int isClicked = board[row][col] & (0x1 << 5);
             int isPossible = board[row][col] & 0x40;
+            int isRisky = board[row][col] & 0x80;
 
             if(isClicked) {
                 currentColor = colorClicked;
             }
             else if(isPossible) {
-                currentColor = colorPossible;
+                if(isRisky) {
+                    currentColor = colorRisky; // Use risky color for moves that are possible but risky
+                } else {
+                    currentColor = colorPossible;
+                }
             }
 
             SDL_SetRenderDrawColor(renderer, currentColor.r, currentColor.g, currentColor.b, currentColor.a);

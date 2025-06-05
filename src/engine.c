@@ -10,8 +10,8 @@
 /*==========
 Positional evaluation for white (flipped for black)
 ==========*/
-// Pawn position values
-const int pawnTable[8][8] = {
+// Pawn position values - middlegame
+const int pawnTableMG[8][8] = {
     { 0,  0,  0,  0,  0,  0,  0,  0},
     {50, 50, 50, 50, 50, 50, 50, 50},
     {10, 10, 20, 30, 30, 20, 10, 10},
@@ -22,8 +22,20 @@ const int pawnTable[8][8] = {
     { 0,  0,  0,  0,  0,  0,  0,  0}
 };
 
-// Knight position values
-const int knightTable[8][8] = {
+// Pawn position values - endgame
+const int pawnTableEG[8][8] = {
+    { 0,  0,  0,  0,  0,  0,  0,  0},
+    {80, 80, 80, 80, 80, 80, 80, 80},
+    {50, 50, 50, 50, 50, 50, 50, 50},
+    {30, 30, 30, 30, 30, 30, 30, 30},
+    {20, 20, 20, 20, 20, 20, 20, 20},
+    {10, 10, 10, 10, 10, 10, 10, 10},
+    {10, 10, 10, 10, 10, 10, 10, 10},
+    { 0,  0,  0,  0,  0,  0,  0,  0}
+};
+
+// Knight position values - middlegame
+const int knightTableMG[8][8] = {
     {-50,-40,-30,-30,-30,-30,-40,-50},
     {-40,-20,  0,  0,  0,  0,-20,-40},
     {-30,  0, 10, 15, 15, 10,  0,-30},
@@ -34,8 +46,20 @@ const int knightTable[8][8] = {
     {-50,-40,-30,-30,-30,-30,-40,-50}
 };
 
-// Bishop position values
-const int bishopTable[8][8] = {
+// Knight position values - endgame
+const int knightTableEG[8][8] = {
+    {-50,-40,-30,-30,-30,-30,-40,-50},
+    {-40,-20,  0,  0,  0,  0,-20,-40},
+    {-30,  0, 10, 15, 15, 10,  0,-30},
+    {-30,  5, 15, 20, 20, 15,  5,-30},
+    {-30,  0, 15, 20, 20, 15,  0,-30},
+    {-30,  5, 10, 15, 15, 10,  5,-30},
+    {-40,-20,  0,  5,  5,  0,-20,-40},
+    {-50,-40,-30,-30,-30,-30,-40,-50}
+};
+
+// Bishop position values - middlegame
+const int bishopTableMG[8][8] = {
     {-20,-10,-10,-10,-10,-10,-10,-20},
     {-10,  0,  0,  0,  0,  0,  0,-10},
     {-10,  0, 10, 10, 10, 10,  0,-10},
@@ -46,8 +70,20 @@ const int bishopTable[8][8] = {
     {-20,-10,-10,-10,-10,-10,-10,-20}
 };
 
-// Rook position values
-const int rookTable[8][8] = {
+// Bishop position values - endgame
+const int bishopTableEG[8][8] = {
+    {-20,-10,-10,-10,-10,-10,-10,-20},
+    {-10,  0,  0,  0,  0,  0,  0,-10},
+    {-10,  0, 10, 10, 10, 10,  0,-10},
+    {-10,  5,  5, 10, 10,  5,  5,-10},
+    {-10,  0,  5, 10, 10,  5,  0,-10},
+    {-10,  5,  5,  5,  5,  5,  5,-10},
+    {-10,  0,  5,  0,  0,  5,  0,-10},
+    {-20,-10,-10,-10,-10,-10,-10,-20}
+};
+
+// Rook position values - middlegame
+const int rookTableMG[8][8] = {
     { 0,  0,  0,  0,  0,  0,  0,  0},
     { 5, 10, 10, 10, 10, 10, 10,  5},
     {-5,  0,  0,  0,  0,  0,  0, -5},
@@ -58,8 +94,32 @@ const int rookTable[8][8] = {
     { 0,  0,  0,  5,  5,  0,  0,  0}
 };
 
-// Queen position values
-const int queenTable[8][8] = {
+// Rook position values - endgame
+const int rookTableEG[8][8] = {
+    { 0,  0,  0,  0,  0,  0,  0,  0},
+    { 5, 10, 10, 10, 10, 10, 10,  5},
+    {-5,  0,  0,  0,  0,  0,  0, -5},
+    {-5,  0,  0,  0,  0,  0,  0, -5},
+    {-5,  0,  0,  0,  0,  0,  0, -5},
+    {-5,  0,  0,  0,  0,  0,  0, -5},
+    {-5,  0,  0,  0,  0,  0,  0, -5},
+    { 0,  0,  0,  5,  5,  0,  0,  0}
+};
+
+// Queen position values - middlegame
+const int queenTableMG[8][8] = {
+    {-20,-10,-10, -5, -5,-10,-10,-20},
+    {-10,  0,  0,  0,  0,  0,  0,-10},
+    {-10,  0,  5,  5,  5,  5,  0,-10},
+    { -5,  0,  5,  5,  5,  5,  0, -5},
+    {  0,  0,  5,  5,  5,  5,  0, -5},
+    {-10,  5,  5,  5,  5,  5,  0,-10},
+    {-10,  0,  5,  0,  0,  0,  0,-10},
+    {-20,-10,-10, -5, -5,-10,-10,-20}
+};
+
+// Queen position values - endgame
+const int queenTableEG[8][8] = {
     {-20,-10,-10, -5, -5,-10,-10,-20},
     {-10,  0,  0,  0,  0,  0,  0,-10},
     {-10,  0,  5,  5,  5,  5,  0,-10},
@@ -71,7 +131,7 @@ const int queenTable[8][8] = {
 };
 
 // King middle game position values
-const int kingMidGameTable[8][8] = {
+const int kingTableMG[8][8] = {
     {-30,-40,-40,-50,-50,-40,-40,-30},
     {-30,-40,-40,-50,-50,-40,-40,-30},
     {-30,-40,-40,-50,-50,-40,-40,-30},
@@ -83,7 +143,7 @@ const int kingMidGameTable[8][8] = {
 };
 
 // King end game position values
-const int kingEndGameTable[8][8] = {
+const int kingTableEG[8][8] = {
     {-50,-40,-30,-20,-20,-30,-40,-50},
     {-30,-20,-10,  0,  0,-10,-20,-30},
     {-30,-10, 20, 30, 30, 20,-10,-30},
@@ -94,124 +154,661 @@ const int kingEndGameTable[8][8] = {
     {-50,-30,-30,-30,-30,-30,-30,-50}
 };
 
+// Helper Functions
 void copyBoard(unsigned char src[8][8], unsigned char dst[8][8]) {
     memcpy(dst, src, 64 * sizeof(unsigned char));
 }
 
-int evaluatePosition(unsigned char board[8][8]) {
-    int score = 0;
-    int materialCount = 0; //check for endgame
+// Store Principal Variation
+void storePV(Move line[], Move move, Move childLine[], int childLength, int* lineLength) {
+    line[0] = move;
+    if (childLength > 0) {
+        memcpy(&line[1], childLine, childLength * sizeof(Move));
+    }
+    *lineLength = childLength + 1;
+}
 
-    for(int i=0;i<8;i++) {
-        for(int j=0;j<8;j++) {
+// Determine game phase (0-256, where 0 is endgame and 256 is opening)
+int getPhase(unsigned char board[8][8]) {
+    int phase = 256; // Start with maximum (opening)
+    
+    // Count all pieces except pawns and kings
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
             unsigned char piece = board[i][j] & TYPE_MASK;
-            
-            if(piece == NONE) {
+            if (piece == NONE || piece == PAWN || piece == KING) {
                 continue;
             }
 
-            switch(piece) {
-                case PAWN:
-                    materialCount += 1;
-                    break;
+            // Reduce phase based on piece type
+            switch (piece) {
                 case KNIGHT:
                 case BISHOP:
-                    materialCount += 3;
+                    phase -= 8; // 32 points total for all knights and bishops
                     break;
                 case ROOK:
-                    materialCount += 5;
+                    phase -= 13; // 26 points total for all rooks
                     break;
                 case QUEEN:
-                    materialCount += 9;
+                    phase -= 24; // 48 points total for all queens
                     break;
             }
         }
     }
 
-    bool isEndgame = materialCount <= 15;  ///TODO: change in accordance
+    // Ensure phase is in valid range
+    if (phase < 0) phase = 0;
+    if (phase > 256) phase = 256;
+    
+    return phase;
+}
 
+// Check if a square is attacked by a piece of the given color
+bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned char attackerColor) {
+    // Check for pawn attacks
+    int pawnDir = (attackerColor == 0) ? 1 : -1;
+    
+    // Check diagonal pawn captures
+    if (position.x - pawnDir >= 0 && position.x - pawnDir < 8) {
+        if (position.y - 1 >= 0) {
+            unsigned char piece = board[position.x - pawnDir][position.y - 1];
+            if ((piece & TYPE_MASK) == PAWN && ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                return true;
+            }
+        }
+        
+        if (position.y + 1 < 8) {
+            unsigned char piece = board[position.x - pawnDir][position.y + 1];
+            if ((piece & TYPE_MASK) == PAWN && ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                return true;
+            }
+        }
+    }
+    
+    // Check knight attacks
+    int knightMoves[8][2] = {
+        {-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
+        {1, -2}, {1, 2}, {2, -1}, {2, 1}
+    };
+    
+    for (int i = 0; i < 8; i++) {
+        int nx = position.x + knightMoves[i][0];
+        int ny = position.y + knightMoves[i][1];
+        
+        if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+            unsigned char piece = board[nx][ny];
+            if ((piece & TYPE_MASK) == KNIGHT && ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                return true;
+            }
+        }
+    }
+    
+    // Check diagonal attacks (bishop, queen)
+    int diagonalDirs[4][2] = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+    
+    for (int i = 0; i < 4; i++) {
+        int dx = diagonalDirs[i][0];
+        int dy = diagonalDirs[i][1];
+        int x = position.x + dx;
+        int y = position.y + dy;
+        
+        while (x >= 0 && x < 8 && y >= 0 && y < 8) {
+            unsigned char piece = board[x][y];
+            if (piece != NONE) {
+                if (((piece & TYPE_MASK) == BISHOP || (piece & TYPE_MASK) == QUEEN) && 
+                    ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                    return true;
+                }
+                break;
+            }
+            x += dx;
+            y += dy;
+        }
+    }
+    
+    // Check horizontal/vertical attacks (rook, queen)
+    int straightDirs[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    
+    for (int i = 0; i < 4; i++) {
+        int dx = straightDirs[i][0];
+        int dy = straightDirs[i][1];
+        int x = position.x + dx;
+        int y = position.y + dy;
+        
+        while (x >= 0 && x < 8 && y >= 0 && y < 8) {
+            unsigned char piece = board[x][y];
+            if (piece != NONE) {
+                if (((piece & TYPE_MASK) == ROOK || (piece & TYPE_MASK) == QUEEN) && 
+                    ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                    return true;
+                }
+                break;
+            }
+            x += dx;
+            y += dy;
+        }
+    }
+    
+    // Check king attacks
+    int kingMoves[8][2] = {
+        {-1, -1}, {-1, 0}, {-1, 1}, {0, -1},
+        {0, 1}, {1, -1}, {1, 0}, {1, 1}
+    };
+    
+    for (int i = 0; i < 8; i++) {
+        int nx = position.x + kingMoves[i][0];
+        int ny = position.y + kingMoves[i][1];
+        
+        if (nx >= 0 && nx < 8 && ny >= 0 && ny < 8) {
+            unsigned char piece = board[nx][ny];
+            if ((piece & TYPE_MASK) == KING && ((piece & COLOR_MASK) >> 4) == attackerColor) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
 
-    for(int i=0;i<8;i++) {
-        for(int j=0;j<8;j++) {
+// Check if the king is in check
+bool isKingInCheck(unsigned char board[8][8], Vector2f kingPosition, unsigned char color) {
+    return isSquareAttacked(board, kingPosition, 1 - color); // Check if attacked by opposite color
+}
+
+// Generate pseudo-legal moves (without checking if they leave king in check)
+void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn) {
+    list->count = 0;
+    
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            unsigned char piece = board[i][j];
+            if (piece == NONE) continue;
+            
+            unsigned char pieceType = piece & TYPE_MASK;
+            unsigned char pieceColor = (piece & COLOR_MASK) >> 4;
+            
+            if (pieceColor != color) continue;
+            
+            // Generate possible moves for this piece
+            unsigned char tempBoard[8][8];
+            copyBoard(board, tempBoard);
+            
+            // Mark the piece as selected to generate moves
+            tempBoard[i][j] |= SELECTED_MASK;
+            
+            // Clear any previous possible moves
+            clearPossibleBoard(tempBoard);
+            
+            // Generate possible moves for this piece
+            generatePossibleMoves(tempBoard, i, j, lastDoublePawn);
+            
+            // Add all possible moves to the move list
+            for (int x = 0; x < 8; x++) {
+                for (int y = 0; y < 8; y++) {
+                    if (tempBoard[x][y] & MOVABLE_MASK) {
+                        // Get the original piece's MODIFIER state
+                        bool hasModifier = (board[i][j] & MODIFIER) != 0;
+                        
+                        Move move = {{i, j}, {x, y}, board[x][y], false, 0, hasModifier, 0};
+                        
+                        // Check for pawn promotion
+                        if (pieceType == PAWN && (x == 0 || x == 7)) {
+                            move.isPromotion = true;
+                            move.promotionPiece = QUEEN | (color << 4); // Default promotion to queen
+                        }
+                        
+                        list->moves[list->count++] = move;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Check if a move is legal (doesn't leave king in check)
+bool isMoveLegal(unsigned char board[8][8], Move move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
+    unsigned char tempBoard[8][8];
+    copyBoard(board, tempBoard);
+    Vector2f tempKings[2] = {kings[0], kings[1]};
+    
+    // Make the move on the temporary board
+    engineMakeMove(tempBoard, move, lastDoublePawn, tempKings);
+    
+    // Check if the king is in check after the move
+    return !isKingInCheck(tempBoard, tempKings[color], color);
+}
+
+// Generate all legal moves
+void generateLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn, Vector2f kings[]) {
+    MoveList pseudoLegalMoves;
+    generatePseudoLegalMoves(board, color, &pseudoLegalMoves, lastDoublePawn);
+    
+    // Filter out moves that leave the king in check
+    list->count = 0;
+    for (int i = 0; i < pseudoLegalMoves.count; i++) {
+        if (isMoveLegal(board, pseudoLegalMoves.moves[i], color, lastDoublePawn, kings)) {
+            list->moves[list->count++] = pseudoLegalMoves.moves[i];
+        }
+    }
+}
+
+// Make a move on the board
+void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]) {
+    unsigned char movingPiece = board[move.from.x][move.from.y];
+    unsigned char pieceType = movingPiece & TYPE_MASK;
+    unsigned char color = (movingPiece & COLOR_MASK) >> 4;
+
+    // For kings and rooks, always clear the MODIFIER flag from source position
+    if (pieceType == KING || pieceType == ROOK) {
+        // Clear the MODIFIER flag from the original position
+        board[move.from.x][move.from.y] &= ~MODIFIER;
+    }
+
+    // Handle pawn double push
+    if (pieceType == PAWN && abs(move.to.x - move.from.x) == 2) {
+        lastDoublePawn->x = move.to.x;
+        lastDoublePawn->y = move.to.y;
+    } else {
+        lastDoublePawn->x = -1;
+        lastDoublePawn->y = -1;
+    }
+
+    // Update king position if the king moves
+    if (pieceType == KING) {
+        kings[color] = move.to;
+        
+        // Handle castling
+        if (abs(move.to.y - move.from.y) == 2) {
+            // Kingside castling (short castle)
+            if (move.to.y > move.from.y) {
+                // Move the rook from the kingside to its new position
+                // Don't set MODIFIER flag on the rook
+                board[move.to.x][move.to.y - 1] = (ROOK | (color << 4));
+                board[move.to.x][7] = 0; // Remove the rook from its original position
+            }
+            // Queenside castling (long castle)
+            else {
+                // Move the rook from the queenside to its new position
+                // Don't set MODIFIER flag on the rook
+                board[move.to.x][move.to.y + 1] = (ROOK | (color << 4));
+                board[move.to.x][0] = 0; // Remove the rook from its original position
+            }
+        }
+    }
+
+    // Prepare the new piece state
+    unsigned char newPiece = move.isPromotion ? move.promotionPiece : movingPiece;
+    
+    // For KING and ROOK, clear the MODIFIER flag to indicate they have moved
+    // This permanently disallows castling with this piece
+    if (pieceType == KING || pieceType == ROOK) {
+        // Clear the MODIFIER flag
+        newPiece &= ~MODIFIER;
+    }
+    // For PAWN, set the MODIFIER flag
+    else if (pieceType == PAWN) {
+        newPiece |= MODIFIER;
+    }
+    
+    // Place the piece on the board
+    board[move.to.x][move.to.y] = newPiece;
+    board[move.from.x][move.from.y] = NONE;
+}
+
+// Unmake a move (restore the board to its previous state)
+void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]) {
+    unsigned char movedPiece = board[move.to.x][move.to.y];
+    unsigned char pieceType = movedPiece & TYPE_MASK;
+    unsigned char color = (movedPiece & COLOR_MASK) >> 4;
+
+    // Restore the moved piece with its original MODIFIER state
+    // For engine search purposes, we need to restore exactly the original state
+    board[move.from.x][move.from.y] = (pieceType | (color << 4) | (move.originalModifier ? MODIFIER : 0));
+
+    // Restore the captured piece
+    board[move.to.x][move.to.y] = move.capturedPiece;
+
+    // Handle undoing castling
+    if (pieceType == KING && abs(move.to.y - move.from.y) == 2) {
+        // Kingside castling (short castle)
+        if (move.to.y > move.from.y) {
+            // Restore the rook to its original position with MODIFIER
+            board[move.to.x][7] = (ROOK | (color << 4) | MODIFIER);
+            board[move.to.x][move.to.y - 1] = 0; // Remove the rook from its castled position
+        }
+        // Queenside castling (long castle)
+        else {
+            // Restore the rook to its original position with MODIFIER
+            board[move.to.x][0] = (ROOK | (color << 4) | MODIFIER);
+            board[move.to.x][move.to.y + 1] = 0; // Remove the rook from its castled position
+        }
+    }
+
+    // Restore king position if king was moved
+    if (pieceType == KING) {
+        kings[color] = move.from;
+    }
+
+    // Reset lastDoublePawn
+    lastDoublePawn->x = -1;
+    lastDoublePawn->y = -1;
+}
+
+// Evaluation Functions
+
+// Material evaluation
+int evaluateMaterial(unsigned char board[8][8]) {
+    int score = 0;
+    
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
             unsigned char piece = board[i][j] & TYPE_MASK;
             unsigned char color = (board[i][j] & COLOR_MASK) >> 4;
 
-            if(piece == NONE) {
-                continue;
-            }
+            if (piece == NONE) continue;
 
             int value = 0;
-            int positionValue = 0;
-
-            //Table coords (mirrored for black)
-            int row = (color == 1) ? 7 - i : i;
-            int col = (color == 1) ? 7 - j : j;
-
-            switch(piece) {
+            switch (piece) {
                 case PAWN:
                     value = PAWN_VALUE;
-                    positionValue = pawnTable[row][col];
                     break;
                 case KNIGHT:
                     value = KNIGHT_VALUE;
-                    positionValue = knightTable[row][col];
                     break;
                 case BISHOP:
                     value = BISHOP_VALUE;
-                    positionValue = bishopTable[row][col];
                     break;
                 case ROOK:
                     value = ROOK_VALUE;
-                    positionValue = rookTable[row][col];
                     break;
                 case QUEEN:
                     value = QUEEN_VALUE;
-                    positionValue = queenTable[row][col];
                     break;
                 case KING:
                     value = KING_VALUE;
-                    positionValue = isEndgame ? kingEndGameTable[row][col] : kingMidGameTable[row][col];
                     break;
             }
 
-            int total = value + positionValue;
-            if(color == 1) {
-                total = -total;
+            if (color == 1) {
+                value = -value;
             }
 
-            score += total;
+            score += value;
         }
     }
+    
     return score;
+}
+
+// Mobility evaluation (count legal moves)
+int evaluateMobility(unsigned char board[8][8], unsigned char color) {
+    MoveList moveList;
+    Vector2f lastDoublePawn = {-1, -1};
+    Vector2f kings[2];
+    findKings(board, kings);
+    
+    // Generate moves for white
+    generateLegalMoves(board, 0, &moveList, &lastDoublePawn, kings);
+    int whiteMobility = moveList.count;
+    
+    // Generate moves for black
+    generateLegalMoves(board, 1, &moveList, &lastDoublePawn, kings);
+    int blackMobility = moveList.count;
+    
+    // Return mobility difference (positive for white advantage)
+    return (whiteMobility - blackMobility) * 5; // 5 centipawns per move advantage
+}
+
+// King safety evaluation
+int evaluateKingSafety(unsigned char board[8][8], unsigned char color, Vector2f kings[]) {
+    int whiteKingSafety = 0;
+    int blackKingSafety = 0;
+    
+    // Check if kings are castled or in the center
+    Vector2f whiteKing = kings[0];
+    Vector2f blackKing = kings[1];
+    
+    // Penalize kings in the center
+    if (whiteKing.y >= 2 && whiteKing.y <= 5 && whiteKing.x < 7) {
+        whiteKingSafety -= 30;
+    }
+    
+    if (blackKing.y >= 2 && blackKing.y <= 5 && blackKing.x > 0) {
+        blackKingSafety -= 30;
+    }
+    
+    // Check pawn shield for white king
+    if (whiteKing.x == 7) {
+        for (int j = whiteKing.y - 1; j <= whiteKing.y + 1; j++) {
+            if (j >= 0 && j < 8) {
+                if (board[6][j] != NONE && (board[6][j] & TYPE_MASK) == PAWN && 
+                    ((board[6][j] & COLOR_MASK) >> 4) == 0) {
+                    whiteKingSafety += 15; // Pawn shield bonus
+                }
+            }
+        }
+    }
+    
+    // Check pawn shield for black king
+    if (blackKing.x == 0) {
+        for (int j = blackKing.y - 1; j <= blackKing.y + 1; j++) {
+            if (j >= 0 && j < 8) {
+                if (board[1][j] != NONE && (board[1][j] & TYPE_MASK) == PAWN && 
+                    ((board[1][j] & COLOR_MASK) >> 4) == 1) {
+                    blackKingSafety += 15; // Pawn shield bonus
+                }
+            }
+        }
+    }
+    
+    // Check if king is in check
+    if (isKingInCheck(board, kings[0], 0)) {
+        whiteKingSafety -= 50;
+    }
+    
+    if (isKingInCheck(board, kings[1], 1)) {
+        blackKingSafety -= 50;
+    }
+    
+    return whiteKingSafety - blackKingSafety;
+}
+
+// Pawn structure evaluation
+int evaluatePawnStructure(unsigned char board[8][8], unsigned char color) {
+    int whiteScore = 0;
+    int blackScore = 0;
+    
+    // Count pawns in each file for doubled pawns detection
+    int whitePawnsInFile[8] = {0};
+    int blackPawnsInFile[8] = {0};
+    
+    // Check for passed pawns, isolated pawns, etc.
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            if ((board[i][j] & TYPE_MASK) == PAWN) {
+                unsigned char pawnColor = (board[i][j] & COLOR_MASK) >> 4;
+                
+                if (pawnColor == 0) { // White pawn
+                    whitePawnsInFile[j]++;
+                    
+                    // Check for passed pawns
+                    bool passed = true;
+                    for (int r = i - 1; r >= 0; r--) {
+                        for (int c = j - 1; c <= j + 1; c++) {
+                            if (c >= 0 && c < 8) {
+                                if ((board[r][c] & TYPE_MASK) == PAWN && 
+                                    ((board[r][c] & COLOR_MASK) >> 4) == 1) {
+                                    passed = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!passed) break;
+                    }
+                    
+                    if (passed) {
+                        whiteScore += 30 + (7 - i) * 10; // More bonus as pawn advances
+                    }
+                    
+                } else { // Black pawn
+                    blackPawnsInFile[j]++;
+                    
+                    // Check for passed pawns
+                    bool passed = true;
+                    for (int r = i + 1; r < 8; r++) {
+                        for (int c = j - 1; c <= j + 1; c++) {
+                            if (c >= 0 && c < 8) {
+                                if ((board[r][c] & TYPE_MASK) == PAWN && 
+                                    ((board[r][c] & COLOR_MASK) >> 4) == 0) {
+                                    passed = false;
+                break;
+                                }
+                            }
+                        }
+                        if (!passed) break;
+                    }
+                    
+                    if (passed) {
+                        blackScore += 30 + i * 10; // More bonus as pawn advances
+                    }
+                }
+            }
+        }
+    }
+    
+    // Penalize doubled pawns
+    for (int j = 0; j < 8; j++) {
+        if (whitePawnsInFile[j] > 1) {
+            whiteScore -= 15 * (whitePawnsInFile[j] - 1);
+        }
+        if (blackPawnsInFile[j] > 1) {
+            blackScore -= 15 * (blackPawnsInFile[j] - 1);
+        }
+    }
+    
+    // Penalize isolated pawns
+    for (int j = 0; j < 8; j++) {
+        if (whitePawnsInFile[j] > 0) {
+            bool isolated = true;
+            if (j > 0 && whitePawnsInFile[j - 1] > 0) isolated = false;
+            if (j < 7 && whitePawnsInFile[j + 1] > 0) isolated = false;
+            
+            if (isolated) {
+                whiteScore -= 20;
+            }
+        }
+        
+        if (blackPawnsInFile[j] > 0) {
+            bool isolated = true;
+            if (j > 0 && blackPawnsInFile[j - 1] > 0) isolated = false;
+            if (j < 7 && blackPawnsInFile[j + 1] > 0) isolated = false;
+            
+            if (isolated) {
+                blackScore -= 20;
+            }
+        }
+    }
+    
+    return whiteScore - blackScore;
+}
+
+// Piece-square table evaluation
+int evaluatePieceSquareTables(unsigned char board[8][8], unsigned char color, int phase) {
+    int score = 0;
+    
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            unsigned char piece = board[i][j] & TYPE_MASK;
+            unsigned char pieceColor = (board[i][j] & COLOR_MASK) >> 4;
+            
+            if (piece == NONE) continue;
+            
+            // Table coords (mirrored for black)
+            int row = (pieceColor == 1) ? i : 7 - i;
+            int col = (pieceColor == 1) ? j : 7 - j;
+            
+            int mgScore = 0;
+            int egScore = 0;
+            
+            switch (piece) {
+                case PAWN:
+                    mgScore = pawnTableMG[row][col];
+                    egScore = pawnTableEG[row][col];
+                    break;
+                case KNIGHT:
+                    mgScore = knightTableMG[row][col];
+                    egScore = knightTableEG[row][col];
+                    break;
+                case BISHOP:
+                    mgScore = bishopTableMG[row][col];
+                    egScore = bishopTableEG[row][col];
+                    break;
+                case ROOK:
+                    mgScore = rookTableMG[row][col];
+                    egScore = rookTableEG[row][col];
+                    break;
+                case QUEEN:
+                    mgScore = queenTableMG[row][col];
+                    egScore = queenTableEG[row][col];
+                    break;
+                case KING:
+                    mgScore = kingTableMG[row][col];
+                    egScore = kingTableEG[row][col];
+                    break;
+            }
+            
+            // Interpolate between middlegame and endgame scores based on phase
+            int positionScore = (mgScore * phase + egScore * (256 - phase)) / 256;
+            
+            // Adjust score based on piece color
+            if (pieceColor == 1) {
+                positionScore = -positionScore;
+            }
+            
+            score += positionScore;
+        }
+    }
+    
+    return score;
+}
+
+// Main evaluation function
+int evaluatePosition(unsigned char board[8][8], unsigned char color) {
+    Vector2f kings[2];
+    findKings(board, kings);
+    
+    int phase = getPhase(board);
+    
+    // Material evaluation (most important)
+    int materialScore = evaluateMaterial(board);
+    
+    // Piece-square tables
+    int pstScore = evaluatePieceSquareTables(board, color, phase);
+    
+    // Mobility evaluation
+    int mobilityScore = evaluateMobility(board, color);
+    
+    // King safety
+    int kingSafetyScore = evaluateKingSafety(board, color, kings);
+    
+    // Pawn structure
+    int pawnStructureScore = evaluatePawnStructure(board, color);
+    
+    // Combine all evaluation terms
+    int totalScore = materialScore + 
+                    pstScore + 
+                    mobilityScore + 
+                    kingSafetyScore +
+                    pawnStructureScore;
+    
+    return totalScore;
 }
 
 // Function to get the relative score (positive for white advantage, negative for black)
 int getRelativeScore(unsigned char board[8][8]) {
-    return evaluatePosition(board);
-}
-
-bool isMoveLegal(unsigned char board[8][8], Move move, unsigned char color, Vector2f* lastDoublePawn) {
-    unsigned char tempBoard[8][8];
-    copyBoard(board, tempBoard);
-
-    unsigned char movingPiece = tempBoard[move.from.x][move.from.y];
-    tempBoard[move.to.x][move.to.y] = movingPiece;
-    tempBoard[move.from.x][move.from.y] = NONE;
-    
-    // Find the king
-    Vector2f kingPos;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if ((tempBoard[i][j] & TYPE_MASK) == KING && ((tempBoard[i][j] & COLOR_MASK) >> 4) == color) {
-                kingPos.x = i;
-                kingPos.y = j;
-                break;
-            }
-        }
-    }
-    
-    // Check if the king is in check
-    return !isCheck(tempBoard, kingPos);
+    // Evaluate from white's perspective
+    int whiteScore = evaluatePosition(board, 0);
+    return whiteScore;
 }
 
 // Function to generate all legal moves for a given position and color
@@ -245,7 +842,10 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
             for (int x = 0; x < 8; x++) {
                 for (int y = 0; y < 8; y++) {
                     if (tempBoard[x][y] & MOVABLE_MASK) {
-                        Move move = {{i, j}, {x, y}, board[x][y], false, 0};
+                        // Get the original piece's MODIFIER state
+                        bool hasModifier = (board[i][j] & MODIFIER) != 0;
+                        
+                        Move move = {{i, j}, {x, y}, board[x][y], false, 0, hasModifier, 0};
                         
                         // Check for pawn promotion
                         if (pieceType == PAWN && (x == 0 || x == 7)) {
@@ -254,7 +854,9 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
                         }
                         
                         // Check if the move is legal (doesn't leave king in check)
-                        if (isMoveLegal(board, move, color, lastDoublePawn)) {
+                        Vector2f kings[2]; // We need to find kings for this check
+                        findKings(board, kings);
+                        if (isMoveLegal(board, move, color, lastDoublePawn, kings)) {
                             moveList->moves[moveList->count++] = move;
                         }
                     }
@@ -265,110 +867,123 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
 }
 
 // Function to make a move on the board
-void makeEngineMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn) {
-    unsigned char movingPiece = board[move.from.x][move.from.y];
-    unsigned char pieceType = movingPiece & TYPE_MASK;
+void makeEngineMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+    int fromX = move.from.x;
+    int fromY = move.from.y;
+    int toX = move.to.x;
+    int toY = move.to.y;
     
-    // Handle pawn double push
-    if (pieceType == PAWN && abs(move.to.x - move.from.x) == 2) {
-        lastDoublePawn->x = move.to.x;
-        lastDoublePawn->y = move.to.y;
+    // Get the moving piece and its color
+    unsigned char piece = board[fromX][fromY];
+    unsigned char color = (piece & COLOR_MASK) >> 4;
+    unsigned char pieceType = piece & TYPE_MASK;
+    
+    // Remember the old piece at the destination (for restoration if needed)
+    unsigned char capturedPiece = board[toX][toY];
+    
+    // Handle the special case of en passant capture
+    if (pieceType == PAWN && fromY != toY && capturedPiece == 0) {
+        // This is an en passant capture
+        board[fromX][toY] = 0; // Remove the captured pawn
+    }
+    
+    // Handle special case of castling
+    if (pieceType == KING && abs(fromY - toY) > 1) {
+        // This is a castling move
+        if (toY > fromY) {
+            // Kingside castling
+            board[fromX][fromY + 1] = board[fromX][7]; // Move rook
+            board[fromX][7] = 0; // Remove rook from original position
+        } else {
+            // Queenside castling
+            board[fromX][fromY - 1] = board[fromX][0]; // Move rook
+            board[fromX][0] = 0; // Remove rook from original position
+        }
+    }
+    
+    // Update the piece's MODIFIER flag to indicate it has moved
+    board[fromX][fromY] |= MODIFIER;
+    
+    // Move the piece
+    board[toX][toY] = board[fromX][fromY];
+    board[fromX][fromY] = 0;
+    
+    // Handle pawn promotion
+    if (pieceType == PAWN && (toX == 0 || toX == 7)) {
+        // Default promote to queen
+        board[toX][toY] = (QUEEN | (color << 4) | MODIFIER);
+    }
+    
+    // Handle pawn double push (for en passant)
+    if (pieceType == PAWN && abs(fromX - toX) == 2) {
+        lastDoublePawn->x = toX;
+        lastDoublePawn->y = toY;
     } else {
         lastDoublePawn->x = -1;
         lastDoublePawn->y = -1;
     }
-    
-    // Handle pawn promotion
-    if (move.isPromotion) {
-        board[move.to.x][move.to.y] = move.promotionPiece;
-    } else {
-        board[move.to.x][move.to.y] = movingPiece;
-    }
-    
-    board[move.from.x][move.from.y] = NONE;
-}
 
-// Function to unmake a move (restore the board to its previous state)
-void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn) {
-    // Restore the moved piece
-    board[move.from.x][move.from.y] = board[move.to.x][move.to.y];
-    
-    // Restore the captured piece
-    board[move.to.x][move.to.y] = move.capturedPiece;
-    
-    // Reset lastDoublePawn to previous state (would need to be tracked in a more complex way for a real engine)
-    lastDoublePawn->x = -1;
-    lastDoublePawn->y = -1;
+    // Update king position if a king was moved
+    if (pieceType == KING) {
+        kingsPositions[color].x = toX;
+        kingsPositions[color].y = toY;
+    }
 }
 
 // Minimax algorithm with alpha-beta pruning
-int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maximizingPlayer, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    // Base case: reached maximum depth or game over
+int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maximizingPlayer, Vector2f* lastDoublePawn, Vector2f kingsPositions[], Move line[], int* lineLength) {
     if (depth == 0) {
-        return evaluatePosition(board);
+        return evaluatePosition(board, maximizingPlayer ? 0 : 1);
     }
-    
+
     MoveList moveList;
     generateMoves(board, maximizingPlayer ? 0 : 1, &moveList, lastDoublePawn);
-    
+
     // Check for checkmate or stalemate
     if (moveList.count == 0) {
-        // Check if the king is in check
         Vector2f kingPos = kingsPositions[maximizingPlayer ? 0 : 1];
-        if (isCheck(board, kingPos)) {
-            // Checkmate (worst possible score, adjusted by depth to prefer faster mates)
+        unsigned char color = maximizingPlayer ? 0 : 1;
+        if (isKingInCheck(board, kingPos, color)) {
             return maximizingPlayer ? -100000 + depth : 100000 - depth;
         } else {
-            // Stalemate
             return 0;
         }
     }
-    
-    if (maximizingPlayer) {
-        int maxEval = INT_MIN;
-        for (int i = 0; i < moveList.count; i++) {
-            // Make move
-            Move move = moveList.moves[i];
-            unsigned char tempBoard[8][8];
-            copyBoard(board, tempBoard);
-            Vector2f tempLastDoublePawn = *lastDoublePawn;
-            makeEngineMove(tempBoard, move, &tempLastDoublePawn);
-            
-            // Recursive evaluation
-            int eval = minimax(tempBoard, depth - 1, alpha, beta, false, &tempLastDoublePawn, kingsPositions);
-            maxEval = (eval > maxEval) ? eval : maxEval;
-            
-            // Alpha-beta pruning
-            alpha = (alpha > eval) ? alpha : eval;
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return maxEval;
-    } else {
-        int minEval = INT_MAX;
-        for (int i = 0; i < moveList.count; i++) {
-            // Make move
-            Move move = moveList.moves[i];
-            unsigned char tempBoard[8][8];
-            copyBoard(board, tempBoard);
-            Vector2f tempLastDoublePawn = *lastDoublePawn;
-            makeEngineMove(tempBoard, move, &tempLastDoublePawn);
-            
-            // Recursive evaluation
-            int eval = minimax(tempBoard, depth - 1, alpha, beta, true, &tempLastDoublePawn, kingsPositions);
-            minEval = (eval < minEval) ? eval : minEval;
-            
-            // Alpha-beta pruning
-            beta = (beta < eval) ? beta : eval;
-            if (beta <= alpha) {
-                break;
-            }
-        }
-        return minEval;
-    }
-}
 
+    int bestEval = maximizingPlayer ? INT_MIN : INT_MAX;
+
+    for (int i = 0; i < moveList.count; i++) {
+        Move move = moveList.moves[i];
+        unsigned char tempBoard[8][8];
+        copyBoard(board, tempBoard);
+
+        Vector2f tempLastDoublePawn = *lastDoublePawn;
+        Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
+
+        makeEngineMove(tempBoard, move, &tempLastDoublePawn, tempKingsPositions);
+
+        Move childLine[MAX_PV_LENGTH];
+        int childLineLength = 0;
+        int eval = minimax(tempBoard, depth - 1, alpha, beta, !maximizingPlayer, &tempLastDoublePawn, tempKingsPositions, childLine, &childLineLength);
+        
+        // Store the principal variation if this is the best move so far
+        if ((maximizingPlayer && eval > bestEval) || (!maximizingPlayer && eval < bestEval)) {
+            storePV(line, move, childLine, childLineLength, lineLength);
+        }
+
+        if (maximizingPlayer) {
+            bestEval = (eval > bestEval) ? eval : bestEval;
+            alpha = (alpha > eval) ? alpha : eval;
+        } else {
+            bestEval = (eval < bestEval) ? eval : bestEval;
+            beta = (beta < eval) ? beta : eval;
+        }
+
+        if (beta <= alpha) break;
+    }
+
+    return bestEval;
+}
 // Function to find the best move for the current position
 Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     MoveList moveList;
@@ -388,10 +1003,13 @@ Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* last
         unsigned char tempBoard[8][8];
         copyBoard(board, tempBoard);
         Vector2f tempLastDoublePawn = *lastDoublePawn;
+        Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
         
-        makeEngineMove(tempBoard, move, &tempLastDoublePawn);
+        makeEngineMove(tempBoard, move, &tempLastDoublePawn, tempKingsPositions);
         
-        int moveValue = minimax(tempBoard, MAX_DEPTH - 1, INT_MIN, INT_MAX, color == 1, &tempLastDoublePawn, kingsPositions);
+        Move line[MAX_PV_LENGTH];
+        int lineLength = 0;
+        int moveValue = minimax(tempBoard, MAX_DEPTH - 1, INT_MIN, INT_MAX, color == 1, &tempLastDoublePawn, tempKingsPositions, line, &lineLength);
         
         if ((color == 0 && moveValue > bestValue) || (color == 1 && moveValue < bestValue)) {
             bestValue = moveValue;
@@ -403,21 +1021,9 @@ Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* last
 }
 
 // Function to check if the game is over (checkmate or stalemate)
-bool isGameOver(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn) {
+bool isGameOver(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     MoveList moveList;
     generateMoves(board, color, &moveList, lastDoublePawn);
-    
-    // Find king position
-    Vector2f kingPos;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if ((board[i][j] & TYPE_MASK) == KING && ((board[i][j] & COLOR_MASK) >> 4) == color) {
-                kingPos.x = i;
-                kingPos.y = j;
-                break;
-            }
-        }
-    }
     
     // No legal moves and king in check = checkmate
     // No legal moves and king not in check = stalemate
@@ -443,7 +1049,7 @@ void getScoreBar(int score, float* whitePercentage, float* blackPercentage) {
 
 // Function to analyze the current position and provide insights
 void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    int score = evaluatePosition(board);
+    int score = evaluatePosition(board, color);
     
     printf("Position analysis:\n");
     printf("Current evaluation: %d centipawns\n", score);
@@ -469,7 +1075,7 @@ void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* l
     
     // Check for checks and checkmates
     Vector2f kingPos = kingsPositions[color];
-    if (isCheck(board, kingPos)) {
+    if (isKingInCheck(board, kingPos, color)) {
         printf("King is in check!\n");
         
         MoveList moveList;
@@ -480,5 +1086,62 @@ void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* l
         } else {
             printf("There are %d legal moves to get out of check\n", moveList.count);
         }
+    }
+}
+
+// Function to evaluate if a piece would be captured after moving to a square
+// Returns a score based on the net material change from the exchange
+int evaluateMoveSafety(unsigned char board[8][8], Move move, unsigned char color) {
+    // Get the value of the piece being moved
+    int movingPieceValue = 0;
+    unsigned char pieceType = board[move.from.x][move.from.y] & TYPE_MASK;
+    
+    switch (pieceType) {
+        case PAWN:   movingPieceValue = PAWN_VALUE; break;
+        case KNIGHT: movingPieceValue = KNIGHT_VALUE; break;
+        case BISHOP: movingPieceValue = BISHOP_VALUE; break;
+        case ROOK:   movingPieceValue = ROOK_VALUE; break;
+        case QUEEN:  movingPieceValue = QUEEN_VALUE; break;
+        case KING:   movingPieceValue = KING_VALUE; break;
+        default:     return 0; // No piece or unknown piece
+    }
+    
+    // Check if the destination square is attacked by opponent
+    Vector2f destination = {move.to.x, move.to.y};
+    unsigned char enemyColor = 1 - color;
+    
+    if (isSquareAttacked(board, destination, enemyColor)) {
+        // Piece would be hanging - estimate the material loss
+        // For simplicity, we assume the worst case: total loss of piece value
+        // A more sophisticated SEE (Static Exchange Evaluation) would be better
+        return -movingPieceValue;
+    }
+    
+    return 0; // No immediate threat detected
+}
+
+// Function to evaluate all legal moves and determine their safety
+void evaluateMovesSafety(unsigned char board[8][8], unsigned char color, MoveList* moveList) {
+    // Reset safety scores for all moves
+    for (int i = 0; i < moveList->count; i++) {
+        moveList->moves[i].safetyScore = 0;
+    }
+    
+    // For each move, check if it puts the piece at risk
+    for (int i = 0; i < moveList->count; i++) {
+        // Make a temporary copy of the board
+        unsigned char tempBoard[8][8];
+        copyBoard(board, tempBoard);
+        
+        // Remove the piece from its original position
+        unsigned char movingPiece = tempBoard[moveList->moves[i].from.x][moveList->moves[i].from.y];
+        tempBoard[moveList->moves[i].from.x][moveList->moves[i].from.y] = 0;
+        
+        // Place it at the destination
+        tempBoard[moveList->moves[i].to.x][moveList->moves[i].to.y] = movingPiece;
+        
+        // Evaluate safety on the new position
+        int safetyScore = evaluateMoveSafety(tempBoard, moveList->moves[i], color);
+        moveList->moves[i].safetyScore = safetyScore;
     }
 }

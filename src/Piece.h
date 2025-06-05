@@ -15,7 +15,8 @@
 /*==========
 --Modifier keep extra data:
 Pawn: remembers if it has move before (for double push)
-King: remembers if a check has occured (for castling)
+King: remembers if it has move before (for castling)
+Rook: remembers if it has move before (for castling)
 ==========*/
 
 #define TYPE_MASK 0x7
@@ -23,6 +24,7 @@ King: remembers if a check has occured (for castling)
 
 #define SELECTED_MASK 0x20
 #define MOVABLE_MASK 0x40
+#define RISKY_MOVE_MASK 0x80
 
 void loadPieceTextures(SDL_Texture* textures[2][7], SDL_Renderer** renderer);
 
@@ -34,7 +36,11 @@ void exportPosition(unsigned char board[8][8], char **exportString);
 
 void findKings(unsigned char board[8][8], Vector2f kingsPositions[]);
 
+void initCastlingRights(unsigned char board[8][8]);
+
 bool isCheck(unsigned char board[8][8], Vector2f kingPosition);
+
+bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned char attackerColor);
 
 bool inBounds(int y);
 
