@@ -88,7 +88,7 @@ bool init() {
         printf("SDL_Init has failed. Error: %s\n", SDL_GetError());
     }
     if (!(IMG_Init(IMG_INIT_PNG))) {
-        printf("IMG_Init has failed. Error: %s\n", SDL_GetError());
+        printf("IMG_Init has failed. Error: %s\n", IMG_GetError());
     }
 
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
@@ -221,10 +221,11 @@ int main() {
 //                             &selectedSquare, &lastDoublePushPawn, kingsPositions);
 
             handleMouseInput(&gameState, mouseX, mouseY); // <--- This is the correct call
-
-            gameState.mouseActions[0] = false;
-            gameState.mouseActions[1] = false;
         }
+        // Move the reset of mouseActions flags here, outside the conditional block
+        gameState.mouseActions[0] = false;
+        gameState.mouseActions[1] = false;
+
 
         //========== Rendering Visuals ==========//
         clear(&renderer);

@@ -58,6 +58,10 @@ void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
                 if (event.button.button == SDL_BUTTON_LEFT) {
                     state->mouseActions[0] = true; // Update mouseActions in state
                 }
+                if (event.button.button == SDL_BUTTON_RIGHT) {
+                    state->mouseActions[1] = true; // Right-click action
+                }
+
                 break;
             case SDL_MOUSEBUTTONUP:
                 if (event.button.button == SDL_BUTTON_LEFT) {
@@ -77,9 +81,14 @@ void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
 }
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
-//    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
-    int boardOffset = 0;
-    return boardOffset < mouseX && mouseX < (screenWidth - boardOffset);
+    // boardOffset is 0 as per your util.c, board starts at X=0
+    int boardStartX = 0;
+    int boardEndX = boardWidth; // boardWidth is defined in util.c
+    int boardStartY = 0;
+    int boardEndY = screenHeight; // screenHeight is defined in util.c
+
+    return (mouseX >= boardStartX && mouseX < boardEndX &&
+            mouseY >= boardStartY && mouseY < boardEndY);
 }
 
 void selectAndHold(GameState *state, int squareX, int squareY) {

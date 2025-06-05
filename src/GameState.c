@@ -34,3 +34,110 @@ void resetGameState(GameState* state) {
     initGameState(state);
     // Or selectively reset specific parts if a full re-initialization is not desired
 }
+
+void saveGameToFile(GameState* state, const char* filePath) {
+    FILE* file = fopen(filePath, "w");
+    if (file == NULL) {
+        printf("Error opening file for saving!\n");
+        return;
+    }
+
+    char* boardString = NULL;
+    exportPosition(state->board, &boardString);
+    if (boardString) {
+        fprintf(file, "BOARD:%s\n", boardString);
+        free(boardString); // Don't forget to free the allocated memory
+    } else {
+        printf("Error exporting board position for saving!\n");
+    }
+
+    fprintf(file, "BLACK_TURN:%d\n", state->blackTurn);
+    fprintf(file, "WHITE_TIME:%d\n", state->whiteTimeMs);
+    fprintf(file, "BLACK_TIME:%d\n", state->blackTimeMs);
+    fprintf(file, "SELECTED_SQUARE_X:%.2f\n", state->selectedSquare.x);
+    fprintf(file, "SELECTED_SQUARE_Y:%.2f\n", state->selectedSquare.y);
+
+    // Save kings positions
+    fprintf(file, "WHITE_KING_POS_X:%.2f\n", state->kingsPositions[0].x);
+    fprintf(file, "WHITE_KING_POS_Y:%.2f\n", state->kingsPositions[0].y);
+    fprintf(file, "BLACK_KING_POS_X:%.2f\n", state->kingsPositions[1].x);
+    fprintf(file, "BLACK_KING_POS_Y:%.2f\n", state->kingsPositions[1].y);
+
+    // Save last double push pawn
+    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_X:%.2f\n", state->lastDoublePushPawn.x);
+    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_Y:%.2f\n", state->lastDoublePushPawn.y);
+
+    // Save captured pieces counts
+    fprintf(file, "NUM_WHITE_CAPTURED:%d\n", state->numWhiteCapturedPieces);
+    for (int i = 0; i < state->numWhiteCapturedPieces; ++i) {
+        fprintf(file, "W_CAPTURED_PIECE_%d:%d\n", i, state->whiteCapturedPieces[i]);
+    }
+    fprintf(file, "NUM_BLACK_CAPTURED:%d\n", state->numBlackCapturedPieces);
+    for (int i = 0; i < state->numBlackCapturedPieces; ++i) {
+        fprintf(file, "B_CAPTURED_PIECE_%d:%d\n", i, state->blackCapturedPieces[i]);
+    }
+
+    fclose(file);
+    printf("Game saved to %s\n", filePath);
+}
+
+void loadGameFromFile(GameState* state, const char* filePath) {
+    FILE* file = fopen(filePath, "r");
+    if (file == NULL) {
+        printf("Error opening file for loading, creating new game.\n");
+        initGameState(state); // Initialize a new game if load fails
+        return;
+    }
+
+    char line[256];
+    char boardString[73]; // Max size for board string + null terminator
+    int tempInt;
+    float tempFloatX, tempFloatY;
+
+    // Initialize counts to 0 before loading to avoid issues if less captured pieces than MAX_CAPTURED
+    state->numWhiteCapturedPieces = 0;
+    state->numBlackCapturedPieces = 0;
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (sscanf(line, "BOARD:%s", boardString) == 1) {
+            placePieces(state->board, boardString);
+        } else if (sscanf(line, "BLACK_TURN:%d", &tempInt) == 1) {
+            state->blackTurn = (bool)tempInt;
+        } else if (sscanf(line, "WHITE_TIME:%d", &state->whiteTimeMs) == 1) {
+            // Value loaded
+        } else if (sscanf(line, "BLACK_TIME:%d", &state->blackTimeMs) == 1) {
+            // Value loaded
+        } else if (sscanf(line, "SELECTED_SQUARE_X:%.2f", &tempFloatX) == 1) {
+            state->selectedSquare.x = tempFloatX;
+        } else if (sscanf(line, "SELECTED_SQUARE_Y:%.2f", &tempFloatY) == 1) {
+            state->selectedSquare.y = tempFloatY;
+        } else if (sscanf(line, "WHITE_KING_POS_X:%.2f", &tempFloatX) == 1) {
+            state->kingsPositions[0].x = tempFloatX;
+        } else if (sscanf(line, "WHITE_KING_POS_Y:%.2f", &tempFloatY) == 1) {
+            state->kingsPositions[0].y = tempFloatY;
+        } else if (sscanf(line, "BLACK_KING_POS_X:%.2f", &tempFloatX) == 1) {
+            state->kingsPositions[1].x = tempFloatX;
+        } else if (sscanf(line, "BLACK_KING_POS_Y:%.2f", &tempFloatY) == 1) {
+            state->kingsPositions[1].y = tempFloatY;
+        } else if (sscanf(line, "LAST_DOUBLE_PUSH_PAWN_X:%.2f", &tempFloatX) == 1) {
+            state->lastDoublePushPawn.x = tempFloatX;
+        } else if (sscanf(line, "LAST_DOUBLE_PUSH_PAWN_Y:%.2f", &tempFloatY) == 1) {
+            state->lastDoublePushPawn.y = tempFloatY;
+        } else if (sscanf(line, "NUM_WHITE_CAPTURED:%d", &state->numWhiteCapturedPieces) == 1) {
+            // Count loaded
+        } else if (sscanf(line, "W_CAPTURED_PIECE_%*d:%d", &tempInt) == 1) {
+            // Use *d to skip the index, we rely on numWhiteCapturedPieces
+            if (state->numWhiteCapturedPieces > 0 && state->numWhiteCapturedPieces <= MAX_CAPTURED) {
+                state->whiteCapturedPieces[state->numWhiteCapturedPieces - 1] = (unsigned char)tempInt;
+            }
+        } else if (sscanf(line, "NUM_BLACK_CAPTURED:%d", &state->numBlackCapturedPieces) == 1) {
+            // Count loaded
+        } else if (sscanf(line, "B_CAPTURED_PIECE_%*d:%d", &tempInt) == 1) {
+            if (state->numBlackCapturedPieces > 0 && state->numBlackCapturedPieces <= MAX_CAPTURED) {
+                state->blackCapturedPieces[state->numBlackCapturedPieces - 1] = (unsigned char)tempInt;
+            }
+        }
+    }
+    fclose(file);
+    printf("Game loaded from %s\n", filePath);
+}

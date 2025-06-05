@@ -69,4 +69,8 @@ void initGameState(GameState* state);
  */
 void resetGameState(GameState* state); // Optional: for restarting the game
 
+
+void saveGameToFile(GameState* state, const char* filePath);
+void loadGameFromFile(GameState* state, const char* filePath);
+
 #endif // GAMESTATE_H
