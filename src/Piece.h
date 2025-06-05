@@ -1,6 +1,7 @@
 #ifndef PIECE_H
 #define PIECE_H
 
+#include <SDL2/SDL_image.h>
 #include "util.h"
 
 #define NONE   0

@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -g
-SRC = main.c RenderWindow.c Piece.c Events.c util.c
+SRC = main.c RenderWindow.c Piece.c Events.c util.c engine.c
 OBJ = $(SRC:.c=.o)
 OUT = program
 
@@ -9,7 +9,7 @@ all: $(OUT)
 
 #Link object file to create exe
 $(OUT): $(OBJ)
-	$(CC) $(OBJ) -o $(OUT) -lSDL2 -lSDL2_image
+	$(CC) $(OBJ) -o $(OUT) -lSDL2 -lSDL2_image -lSDL2_ttf -lSDL2_mixer
 
 #Compile source file in obj file
 %.o: %.c

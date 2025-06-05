@@ -3,11 +3,14 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+// #include <SDL2/SDL_ttf.h>
+// #include <SDL2/SDL_mixer.h>
 
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "Events.h"
 #include "util.h"
+#include "engine.h"
 
 /*----------Variable declaration------------*/
 bool gameRunning = true;
@@ -25,6 +28,11 @@ const int squareSize=100;
 
 Uint64 currentTick, lastTick;
 double deltaTime;
+
+// Engine variables
+bool engineEnabled = false;
+bool showAnalysis = false;
+bool computerPlaysBlack = false;
 
 
 /*---------Helper functions-----------*/
@@ -51,8 +59,56 @@ void printfBoard(unsigned char board[8][8]) {
 
 
 
+// Function to draw the evaluation bar
+void drawEvaluationBar(SDL_Renderer* renderer, int score) {
+    float whitePercentage, blackPercentage;
+    getScoreBar(score, &whitePercentage, &blackPercentage);
+    
+    // Draw the bar on the right side of the screen
+    int barWidth = 30;
+    int barHeight = 400;
+    int barX = screenWidth - barWidth - 20;
+    int barY = (screenHeight - barHeight) / 2;
+    
+    // Black portion (top)
+    SDL_Rect blackRect = {barX, barY, barWidth, (int)(barHeight * blackPercentage)};
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderFillRect(renderer, &blackRect);
+    
+    // White portion (bottom)
+    SDL_Rect whiteRect = {barX, barY + (int)(barHeight * blackPercentage), 
+                         barWidth, (int)(barHeight * whitePercentage)};
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderFillRect(renderer, &whiteRect);
+    
+    // Draw border
+    SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+    SDL_Rect borderRect = {barX, barY, barWidth, barHeight};
+    SDL_RenderDrawRect(renderer, &borderRect);
+    
+    // Reset render color
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+}
+
+// Function to make the computer move
+void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+    if ((*blackTurn && computerPlaysBlack) || (!*blackTurn && !computerPlaysBlack)) {
+        unsigned char color = *blackTurn ? 1 : 0;
+        Move bestMove = findBestMove(board, color, lastDoublePawn, kingsPositions);
+        
+        if (bestMove.from.x != -1) {
+            printf("Computer plays: %c%d to %c%d\n", 
+                'a' + bestMove.from.y, 8 - bestMove.from.x,
+                'a' + bestMove.to.y, 8 - bestMove.to.x);
+            
+            makeEngineMove(board, bestMove, lastDoublePawn);
+            *blackTurn = !*blackTurn;
+        }
+    }
+}
+
 int main(int argc, char* argv[]) {
-    /*==========Program Initialization==========*/
+    //==========Program Initialization==========//
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
 
@@ -61,7 +117,7 @@ int main(int argc, char* argv[]) {
     }
     printf("Program started successfully\n");
 
-    /*==========Initialize Variables==========*/
+    //==========Initialize Variables==========//
     unsigned char board[8][8] = {0};
     //Each square has 1 bite(unsigned char) or 8 bits:
     //Bits 6 to 8 (3 bits) know the type of piece on the square: 1=pawn, 2=bishop, 3=knight, 4=rook, 5=queen, 6=king
@@ -79,14 +135,20 @@ int main(int argc, char* argv[]) {
     *pos1: isHoldingPiece (a piece is holded in "hand")
     */
 
-    bool blackTurn = false; //remember who's player is the turn
+    bool blackTurn = false; // remember who's player is the turn
     SDL_Event event;
     SDL_Texture* pieceTextures[2][7];
-    Vector2f selectedSquare = createVector(-1.0f, -1.0f);
+    Vector2f selectedSquare = createVector(-1, -1);
     Vector2f kingsPositions[2];
-    Vector2f lastDoublePushPawn = createVector(-1.0f, -1.0f);
+    Vector2f lastDoublePushPawn = createVector(-1, -1);
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     int mouseX, mouseY;
+
+    // Engine variables
+    int currentScore = 0;
+    
+    // Keyboard state for engine control
+    const Uint8* keyboardState = SDL_GetKeyboardState(NULL);
 
     //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
@@ -94,16 +156,46 @@ int main(int argc, char* argv[]) {
     placePieces(board, input);
     findKings(board, kingsPositions); //Initialize kings positions
     
+    // Print instructions
+    printf("Chess Game with Engine\n");
+    printf("Controls:\n");
+    printf("E - Toggle engine (computer plays black)\n");
+    printf("A - Toggle position analysis\n");
+    printf("S - Show evaluation bar\n");
+    
     while(gameRunning) {
         //==========Find time variables==========//
         lastTick = currentTick;
         currentTick = SDL_GetPerformanceCounter();
         deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
-        // printfBoard(board);
-
+        
         //==========Events and movements==========//
         getEvents(event, &gameRunning, mouseActions);
         SDL_GetMouseState(&mouseX, &mouseY);
+        
+        // Handle keyboard input for engine control
+        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_E]) {
+            if (!keyboardState[SDL_SCANCODE_E]) { // Only toggle once per key press
+                engineEnabled = !engineEnabled;
+                computerPlaysBlack = engineEnabled;
+                printf("Engine %s. Computer plays black: %s\n", 
+                       engineEnabled ? "enabled" : "disabled",
+                       computerPlaysBlack ? "yes" : "no");
+            }
+        }
+        
+        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_A]) {
+            if (!keyboardState[SDL_SCANCODE_A]) {
+                showAnalysis = !showAnalysis;
+                if (showAnalysis) {
+                    analyzePosition(board, blackTurn ? 1 : 0, &lastDoublePushPawn, kingsPositions);
+                }
+                printf("Analysis %s\n", showAnalysis ? "enabled" : "disabled");
+            }
+        }
+        
+        // Update keyboard state for next frame
+        keyboardState = SDL_GetKeyboardState(NULL);
         
         if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
             handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare, &lastDoublePushPawn, kingsPositions);
@@ -111,16 +203,33 @@ int main(int argc, char* argv[]) {
             mouseActions[1] = false;
         }
         
+        // Make computer move if engine is enabled
+        if (engineEnabled) {
+            makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
+        }
+        
+        // Update the current score
+        currentScore = getRelativeScore(board);
+        
         //==========Render Visuals==========//
         clear(&renderer);
         drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, board);
+        
+        // Draw evaluation bar
+        drawEvaluationBar(renderer, currentScore);
+        
         for(int row=0;row<8;row++) {
             for(int col=0;col<8;col++) {
                 renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
             }
         } 
         display(&renderer);
-
+        
+        // Show analysis if requested
+        if (showAnalysis) {
+            analyzePosition(board, blackTurn ? 1 : 0, &lastDoublePushPawn, kingsPositions);
+            showAnalysis = false; // Only show once per request
+        }
     }
 
     char *exportString = NULL;

@@ -6,6 +6,6 @@ typedef struct Point {
 } Vector2f;
 
 
-Vector2f createVector(float x, float y);
+Vector2f createVector(int x, int y);
 
 #endif
