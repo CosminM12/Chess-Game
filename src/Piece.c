@@ -7,9 +7,6 @@
 #include "Piece.h"
 #include "RenderWindow.h"
 
-// Function prototypes
-bool wouldLeaveKingInCheck(unsigned char board[8][8], int fromX, int fromY, int toX, int toY, Vector2f kingsPositions[]);
-
 
 /*
 ==========================
@@ -230,20 +227,13 @@ bool opposingColor(unsigned char piece, int color) {
 ==========================
 */
 void generateStepMoves(unsigned char board[8][8], int x, int y, int dx[], int dy[], int color, int directions) {
-    // Find kings positions for check validation
-    Vector2f kingsPositions[2];
-    findKings(board, kingsPositions);
-    
     for(int k=0;k<directions;k++) {
         int newX = x + dx[k];
         int newY = y + dy[k];
 
         if(inBounds(newX) && inBounds(newY)) {
             if(board[newX][newY] == 0 || opposingColor(board[newX][newY], color)) {
-                // Check if this move would leave the king in check
-                if (!wouldLeaveKingInCheck(board, y, x, newY, newX, kingsPositions)) {
-                    board[newX][newY] |= MOVABLE_MASK;
-                }
+                board[newX][newY] |=  MOVABLE_MASK;
             }
         }
     }
@@ -251,10 +241,6 @@ void generateStepMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
 
 //Generate moves on lines, colomns and diagonals
 void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy[], int color, int directions) {
-    // Find kings positions for check validation
-    Vector2f kingsPositions[2];
-    findKings(board, kingsPositions);
-    
     for(int k=0;k<directions;k++) { //For each movable line
 
         //Calculate new positions
@@ -264,18 +250,12 @@ void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
         while(inBounds(newX) && inBounds(newY)) {
             //Empty square => add possible + continue
             if(board[newX][newY] == 0) {
-                // Check if this move would leave the king in check
-                if (!wouldLeaveKingInCheck(board, y, x, newY, newX, kingsPositions)) {
-                    board[newX][newY] |= MOVABLE_MASK;
-                }
+                board[newX][newY] |=  MOVABLE_MASK;
             }
 
             //Piece on square => add possible + break 
             else if(opposingColor(board[newX][newY], color)) {
-                // Check if this move would leave the king in check
-                if (!wouldLeaveKingInCheck(board, y, x, newY, newX, kingsPositions)) {
-                    board[newX][newY] |= MOVABLE_MASK;
-                }
+                board[newX][newY] |=  MOVABLE_MASK;
                 break;
             }
             else {
@@ -308,47 +288,12 @@ void clearPossibleBoard(unsigned char board[8][8]) {
     }
 }
 
-// Helper function to check if a move is legal (doesn't leave the king in check)
-bool wouldLeaveKingInCheck(unsigned char board[8][8], int fromX, int fromY, int toX, int toY, Vector2f kingsPositions[]) {
-    unsigned char tempBoard[8][8];
-    Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
-    
-    // Copy the board to a temporary board
-    for(int i = 0; i < 8; i++) {
-        for(int j = 0; j < 8; j++) {
-            tempBoard[i][j] = board[i][j];
-        }
-    }
-    
-    // Get the color and type of the moving piece
-    unsigned char movingPiece = board[fromY][fromX];
-    unsigned int pieceType = movingPiece & TYPE_MASK;
-    unsigned int color = (movingPiece & COLOR_MASK) >> 4;
-    
-    // Make the move on the temporary board
-    tempBoard[toY][toX] = tempBoard[fromY][fromX];
-    tempBoard[fromY][fromX] = 0;
-    
-    // Update king position if king is moving
-    if(pieceType == KING) {
-        tempKingsPositions[color].x = toY;
-        tempKingsPositions[color].y = toX;
-    }
-    
-    // Check if the king is in check after the move
-    return isCheck(tempBoard, tempKingsPositions[color]);
-}
-
 void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *lastDoublePawn) {
     clearPossibleBoard(board);
     
     unsigned int type = board[x][y] & TYPE_MASK;
     unsigned int color = (board[x][y] & COLOR_MASK) >> 4;
     //color is 1 if piece is black, 0 if its white
-    
-    // Find kings positions for check validation
-    Vector2f kingsPositions[2];
-    findKings(board, kingsPositions);
 
     switch(type) {
         case PAWN:
@@ -456,8 +401,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                         if (!isSquareAttacked(board, passThrough, enemyColor)) {
                             // Check if the destination square is under attack
                             Vector2f destination = {x, y+2};
-                            if (!isSquareAttacked(board, destination, enemyColor) && 
-                                !wouldLeaveKingInCheck(board, y, x, y+2, x, kingsPositions)) {
+                            if (!isSquareAttacked(board, destination, enemyColor)) {
                                 // King can castle kingside
                                 board[x][y+2] |= MOVABLE_MASK;
                             }
@@ -482,8 +426,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                         if (!isSquareAttacked(board, passThrough, enemyColor)) {
                             // Check if the destination square is under attack
                             Vector2f destination = {x, y-2};
-                            if (!isSquareAttacked(board, destination, enemyColor) && 
-                                !wouldLeaveKingInCheck(board, y, x, y-2, x, kingsPositions)) {
+                            if (!isSquareAttacked(board, destination, enemyColor)) {
                                 // King can castle queenside
                                 board[x][y-2] |= MOVABLE_MASK;
                             }

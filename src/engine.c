@@ -324,7 +324,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
             if (piece == NONE || ((piece & COLOR_MASK) >> 4) != color) {
                 continue;
             }
-
+            
             // Check if the piece has a modifier flag (e.g., has moved before)
             bool hasModifier = (piece & MODIFIER) != 0;
             unsigned char pieceType = piece & TYPE_MASK;
@@ -334,7 +334,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                 case PAWN: {
                     // Pawn movement direction depends on color
                     int direction = (color == 0) ? -1 : 1;
-
+            
                     // Forward move (1 square)
                     int newRow = i + direction;
                     if (newRow >= 0 && newRow < 8 && board[newRow][j] == NONE) {
@@ -429,8 +429,8 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             } else {
                                 if (((targetPiece & COLOR_MASK) >> 4) != color) {
                                     EngineMove move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
-                                    list->moves[list->count++] = move;
-                                }
+                        list->moves[list->count++] = move;
+                    }
                                 break;  // Can't move past a piece
                             }
                         }
@@ -528,10 +528,10 @@ bool isLegalMove(unsigned char board[8][8], EngineMove move, unsigned char color
     unsigned char tempBoard[8][8];
     Vector2f tempLastDoublePawn = lastDoublePawn ? *lastDoublePawn : (Vector2f){-1, -1};
     Vector2f tempKings[2] = {kings[0], kings[1]};
-
+    
     // Make the move on the temporary board
     engineMakeMove(tempBoard, move, &tempLastDoublePawn, tempKings, 0);
-
+    
     // Check if the king is in check after the move
     return !isKingInCheck(tempBoard, tempKings[color], color);
 }
@@ -540,7 +540,7 @@ bool isLegalMove(unsigned char board[8][8], EngineMove move, unsigned char color
 void generateLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn, Vector2f kings[]) {
     MoveList pseudoLegalMoves;
     generatePseudoLegalMoves(board, color, &pseudoLegalMoves, lastDoublePawn);
-
+    
     // Filter out moves that leave the king in check
     list->count = 0;
     for (int i = 0; i < pseudoLegalMoves.count; i++) {
@@ -1010,8 +1010,8 @@ int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maxi
     }
     
     // Make a temporary copy of the board and kings
-    unsigned char tempBoard[8][8];
-    Vector2f tempKings[2] = {kings[0], kings[1]};
+        unsigned char tempBoard[8][8];
+        Vector2f tempKings[2] = {kings[0], kings[1]};
     Vector2f tempLastDoublePawn = *lastDoublePawn;
     
     if (maximizing) {
@@ -1061,8 +1061,8 @@ int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maxi
             if (beta <= alpha) {
                 break;
             }
-        }
-        
+    }
+
         return minEval;
     }
 }
@@ -1090,16 +1090,16 @@ EngineMove findBestMoveWithMinimax(unsigned char board[8][8], unsigned char colo
         
         // Make the move on the temporary board
         engineMakeMove(tempBoard, moveList.moves[i], &tempLastDoublePawn, tempKings, 0);
-        
+
         // Calculate the score for this move
         int score = minimax(tempBoard, MAX_DEPTH - 1, -100000, 100000, false, !color, &tempLastDoublePawn, tempKings);
-        
+
         if (score > bestScore) {
             bestScore = score;
             bestMove = moveList.moves[i];
         }
     }
-    
+
     return bestMove;
 }
 

@@ -208,14 +208,14 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, scoreText, textColor);
         if (textSurface) {
             SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-            SDL_Rect textRect = {
+                SDL_Rect textRect = {
                 barX - textSurface->w - 5,
                 barY + barHeight / 2 - textSurface->h / 2,
-                textSurface->w,
-                textSurface->h
-            };
-            SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-            SDL_DestroyTexture(textTexture);
+                    textSurface->w,
+                    textSurface->h
+                };
+                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                SDL_DestroyTexture(textTexture);
             SDL_FreeSurface(textSurface);
         }
         TTF_CloseFont(font);
@@ -442,12 +442,12 @@ int main(int argc, char* argv[]) {
     // Initialize SDL
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
-    
+
     if (!windowCreation || !SDLInit) {
         return -1;
     }
     printf("Program started successfully\n");
-    
+
     // Record initial game state
     recordGameState(&gameState);
     
@@ -797,7 +797,7 @@ int main(int argc, char* argv[]) {
             }
             
             // Show position analysis if enabled
-            if (showAnalysis) {
+        if (showAnalysis) {
                 displayPositionAnalysis(gameState.board, gameState.blackTurn, &gameState.lastDoublePushPawn, gameState.kingsPositions);
             }
         }
@@ -805,7 +805,7 @@ int main(int argc, char* argv[]) {
         // Present the renderer
         SDL_RenderPresent(renderer);
     }
-    
+
     // Cleanup
     destroyFont();
     cleanUp(window);
