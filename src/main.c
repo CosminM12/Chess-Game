@@ -256,10 +256,10 @@ int main() {
         SDL_GetMouseState(&mouseX, &mouseY);
 
         // Define positions for your buttons
-        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 130, 40};
-        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 130, 40};
-        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 130, 40}; // Example position
-        SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 130, 40}; // Example position
+        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
+        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40}; // Example position
+        SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40}; // Example position
 
 
         if (gameState.mouseActions[0]) {
@@ -336,11 +336,11 @@ int main() {
             drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible, gameState.board);
 
             SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &sidebar_background);
 
             SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, timer_height};
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &timerBox);
 
             formatTime(whiteTimerStr, whiteTimeMs);
@@ -353,7 +353,7 @@ int main() {
             renderText(renderer, blackTimerStr, (SDL_Color) {255, 255, 255, 255}, boardWidth + 150, 40);
 
             SDL_Rect capturedBlackBox = {boardWidth, timer_height, sidebar1_width, captured_height * 2};
-            SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &capturedBlackBox);
 
             SDL_Rect capturedWhiteBox = {boardWidth + sidebar1_width, 250, sidebar2_width, 150};
@@ -361,11 +361,11 @@ int main() {
             SDL_RenderFillRect(renderer, &capturedWhiteBox);
 
             SDL_Rect buttonBox = {boardWidth, screenHeight - 150, sidebar1_width, 150};
-            SDL_SetRenderDrawColor(renderer, 255, 100, 180, 255);
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &buttonBox);
 
             SDL_Rect moveHistoryBox = {boardWidth + sidebar1_width, 0, sidebar2_width, screenHeight};
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &moveHistoryBox);
 
 
@@ -402,20 +402,20 @@ int main() {
             // Render Save and Load buttons
             SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
             SDL_RenderFillRect(renderer, &saveButton);
-            renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 10);
+            renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 5);
 
             SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
             SDL_RenderFillRect(renderer, &loadButton);
-            renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 10);
+            renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 5);
 
             // --- RENDER UNDO/REDO BUTTONS ---
             SDL_SetRenderDrawColor(renderer, 150, 50, 0, 255); // Orange for undo
             SDL_RenderFillRect(renderer, &undoButton);
-            renderText(renderer, "Undo", (SDL_Color){255, 255, 255, 255}, undoButton.x + 40, undoButton.y + 10);
+            renderText(renderer, "Undo", (SDL_Color){255, 255, 255, 255}, undoButton.x + 40, undoButton.y + 5);
 
             SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255); // Cyan for redo
             SDL_RenderFillRect(renderer, &redoButton);
-            renderText(renderer, "Redo", (SDL_Color){255, 255, 255, 255}, redoButton.x + 40, redoButton.y + 10);
+            renderText(renderer, "Redo", (SDL_Color){255, 255, 255, 255}, redoButton.x + 40, redoButton.y + 5);
             // --- END RENDER UNDO/REDO BUTTONS ---
         }
 
