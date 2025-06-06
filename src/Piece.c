@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h> // Include for malloc and free
 
 #include "Piece.h"
 #include "RenderWindow.h"
@@ -25,7 +26,7 @@ void initCastlingRights(unsigned char board[8][8]) {
             if((board[i][j] & TYPE_MASK) == KING) {
                 board[i][j] |= MODIFIER; // Set MODIFIER for castling
             }
-            
+
             // Initialize rooks for castling
             if((board[i][j] & TYPE_MASK) == ROOK) {
                 board[i][j] |= MODIFIER; // Set MODIFIER for castling
@@ -59,7 +60,7 @@ SDL_Texture* getPieceTexture(SDL_Texture* textures[2][7], unsigned char piece) {
     1B -> (b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)
     b6, b7, b8: Piece Type: 1-6
     b4, b5: Piece Color (0x10 = white, 0x20 = black)
-    b3: is selected 
+    b3: is selected
     =================*/
     int pieceColor = (piece & COLOR_MASK) >> 4;
     int pieceType = piece & TYPE_MASK;
@@ -134,7 +135,7 @@ void exportPosition(unsigned char board[8][8], char **exportString) {
                 }
                 switch(piece) {
                     case PAWN:
-                        (*exportString)[cnt++] = 'p'; 
+                        (*exportString)[cnt++] = 'p';
                         break;
                     case BISHOP:
                         (*exportString)[cnt++] = 'b';
@@ -152,7 +153,8 @@ void exportPosition(unsigned char board[8][8], char **exportString) {
                         (*exportString)[cnt++] = 'k';
                         break;
                     default:
-                        (*exportString) = NULL;
+                        free(*exportString); // Free previously allocated memory
+                        *exportString = NULL;
                         return;
                 }
                 if(color != 0) {
@@ -165,12 +167,12 @@ void exportPosition(unsigned char board[8][8], char **exportString) {
             numOfEmptySpaces = 0;
         }
     }
-    exportString[cnt] = '\0';
+    (*exportString)[cnt] = '\0';
 }
 
 void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
     int foundKings = 0;
-    
+
     // Find king positions without modifying any flags
     // This prevents resetting castling rights each time this function is called
     for(int i=0;i<8;i++) {
@@ -181,7 +183,7 @@ void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
                 unsigned int color = (board[i][j] & COLOR_MASK) >> 4;
                 kingsPositions[color].x = i;
                 kingsPositions[color].y = j;
-                
+
                 foundKings++;
                 if(foundKings == 2) {
                     return;
@@ -199,23 +201,23 @@ void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
 bool isCheck(unsigned char board[8][8], Vector2f kingPos) {
     int kingX = kingPos.x;
     int kingY = kingPos.y;
-    
+
     // Check if the position is even a king
     if ((board[kingX][kingY] & TYPE_MASK) != KING) {
         return false;
     }
-    
+
     // Get the color of the opponent
     unsigned char kingColor = (board[kingX][kingY] & COLOR_MASK) >> 4;
     unsigned char opponentColor = 1 - kingColor;
-    
+
     // Check if any enemy piece can attack the king's position
     return isSquareAttacked(board, kingPos, opponentColor);
 }
 
 //Checks if calc position is on board
 bool inBounds(int var) {
-    return -1 < var && var < 8; 
+    return -1 < var && var < 8;
 }
 
 //Checks if piece is of another color
@@ -233,7 +235,7 @@ void generateStepMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
     // Find kings positions for check validation
     Vector2f kingsPositions[2];
     findKings(board, kingsPositions);
-    
+
     for(int k=0;k<directions;k++) {
         int newX = x + dx[k];
         int newY = y + dy[k];
@@ -254,7 +256,7 @@ void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
     // Find kings positions for check validation
     Vector2f kingsPositions[2];
     findKings(board, kingsPositions);
-    
+
     for(int k=0;k<directions;k++) { //For each movable line
 
         //Calculate new positions
@@ -270,7 +272,7 @@ void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
                 }
             }
 
-            //Piece on square => add possible + break 
+                //Piece on square => add possible + break
             else if(opposingColor(board[newX][newY], color)) {
                 // Check if this move would leave the king in check
                 if (!wouldLeaveKingInCheck(board, y, x, newY, newX, kingsPositions)) {
@@ -312,53 +314,53 @@ void clearPossibleBoard(unsigned char board[8][8]) {
 bool wouldLeaveKingInCheck(unsigned char board[8][8], int fromX, int fromY, int toX, int toY, Vector2f kingsPositions[]) {
     unsigned char tempBoard[8][8];
     Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
-    
+
     // Copy the board to a temporary board
     for(int i = 0; i < 8; i++) {
         for(int j = 0; j < 8; j++) {
             tempBoard[i][j] = board[i][j];
         }
     }
-    
+
     // Get the color and type of the moving piece
     unsigned char movingPiece = board[fromY][fromX];
     unsigned int pieceType = movingPiece & TYPE_MASK;
     unsigned int color = (movingPiece & COLOR_MASK) >> 4;
-    
+
     // Make the move on the temporary board
     tempBoard[toY][toX] = tempBoard[fromY][fromX];
     tempBoard[fromY][fromX] = 0;
-    
+
     // Update king position if king is moving
     if(pieceType == KING) {
         tempKingsPositions[color].x = toY;
         tempKingsPositions[color].y = toX;
     }
-    
+
     // Check if the king is in check after the move
     return isCheck(tempBoard, tempKingsPositions[color]);
 }
 
 void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *lastDoublePawn) {
     clearPossibleBoard(board);
-    
+
     unsigned int type = board[x][y] & TYPE_MASK;
     unsigned int color = (board[x][y] & COLOR_MASK) >> 4;
     //color is 1 if piece is black, 0 if its white
-    
+
     // Find kings positions for check validation
     Vector2f kingsPositions[2];
     findKings(board, kingsPositions);
 
     switch(type) {
-        case PAWN:
+        case PAWN: { // Added curly braces for scope
             //------Single step movement------
 
             //if dir is 1 -> piece is black => move down
             //if dir is 0 -> piece is white => move up
             int direction = (color == 1) ? 1 : -1;
             int newX = x+direction;
-            
+
             //I.Move forward
             if((board[newX][y] & TYPE_MASK) == 0) {
                 board[newX][y] |=  MOVABLE_MASK;
@@ -382,7 +384,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                 newY = y + dy[i];
                 if(inBounds(newY)) {
                     // Check if there's a pawn next to us and if it made a double move last turn
-                    if((board[x][newY] & TYPE_MASK) == PAWN && 
+                    if((board[x][newY] & TYPE_MASK) == PAWN &&
                        opposingColor(board[x][newY], color) &&
                        (*lastDoublePawn).x == newY && (*lastDoublePawn).y == x) {
                         // Mark the square behind the pawn as a valid capture square
@@ -402,52 +404,57 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
             }
 
             break;
-        case KNIGHT:
+        } // Added curly braces for scope
+        case KNIGHT: { // Added curly braces for scope
             //Possible knight moves
             int jumpDX[8] = {-2, -2, -1, -1,  1,  1,  2,  2};
             int jumpDY[8] = {-1,  1, -2,  2, -2,  2, -1,  1};
             generateStepMoves(board, x, y, jumpDX, jumpDY, color, 8);
             break;
-            
-        case BISHOP:
+        } // Added curly braces for scope
+
+        case BISHOP: { // Added curly braces for scope
             // Diagonal directions: top-left, top-right, bottom-left, bottom-right
             int diagDX[4] = {-1, -1,  1,  1};
             int diagDY[4] = {-1,  1, -1,  1};
             generateLongMoves(board, x, y, diagDX, diagDY, color, 4);
             break;
+        } // Added curly braces for scope
 
-        case ROOK:
+        case ROOK: { // Added curly braces for scope
             int linesDX[4] = {-1,  1,  0,  0};
             int linesDY[4] = { 0,  0,  1, -1};
             generateLongMoves(board, x, y, linesDX, linesDY, color, 4);
             break;
+        } // Added curly braces for scope
 
-        case QUEEN:
+        case QUEEN: { // Added curly braces for scope
             int queenDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
             int queenDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
             generateLongMoves(board, x, y, queenDX, queenDY, color, 8);
             break;
+        } // Added curly braces for scope
 
-        case KING:
+        case KING: { // Added curly braces for scope
             int kingDX[8] = {-1, -1, -1,  0,  0,  1,  1,  1};
             int kingDY[8] = {-1,  0,  1, -1,  1, -1,  0,  1};
             generateStepMoves(board, x, y, kingDX, kingDY, color, 8);
-            
+
             // Check for castling possibilities
             // King must not have moved before (MODIFIER flag must be set during initialization and cleared on first move)
             if ((board[x][y] & MODIFIER) != 0) {
                 // Get king's color
                 unsigned char kingColor = (board[x][y] & COLOR_MASK) >> 4;
                 unsigned char enemyColor = 1 - kingColor;
-                
+
                 // Check kingside castling (short castle)
-                if (y + 3 < 8 && 
-                    (board[x][y+3] & TYPE_MASK) == ROOK && 
+                if (y + 3 < 8 &&
+                    (board[x][y+3] & TYPE_MASK) == ROOK &&
                     (board[x][y+3] & COLOR_MASK) == (board[x][y] & COLOR_MASK) &&
                     (board[x][y+3] & MODIFIER) != 0 &&  // Rook must not have moved
-                    (board[x][y+1] & TYPE_MASK) == 0 && 
+                    (board[x][y+1] & TYPE_MASK) == 0 &&
                     (board[x][y+2] & TYPE_MASK) == 0) {
-                    
+
                     // Check if king is in check
                     Vector2f kingPos = {x, y};
                     if (!isSquareAttacked(board, kingPos, enemyColor)) {
@@ -456,7 +463,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                         if (!isSquareAttacked(board, passThrough, enemyColor)) {
                             // Check if the destination square is under attack
                             Vector2f destination = {x, y+2};
-                            if (!isSquareAttacked(board, destination, enemyColor) && 
+                            if (!isSquareAttacked(board, destination, enemyColor) &&
                                 !wouldLeaveKingInCheck(board, y, x, y+2, x, kingsPositions)) {
                                 // King can castle kingside
                                 board[x][y+2] |= MOVABLE_MASK;
@@ -464,16 +471,16 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                         }
                     }
                 }
-                
+
                 // Check queenside castling (long castle)
-                if (y - 4 >= 0 && 
-                    (board[x][y-4] & TYPE_MASK) == ROOK && 
+                if (y - 4 >= 0 &&
+                    (board[x][y-4] & TYPE_MASK) == ROOK &&
                     (board[x][y-4] & COLOR_MASK) == (board[x][y] & COLOR_MASK) &&
                     (board[x][y-4] & MODIFIER) != 0 &&  // Rook must not have moved
-                    (board[x][y-1] & TYPE_MASK) == 0 && 
-                    (board[x][y-2] & TYPE_MASK) == 0 && 
+                    (board[x][y-1] & TYPE_MASK) == 0 &&
+                    (board[x][y-2] & TYPE_MASK) == 0 &&
                     (board[x][y-3] & TYPE_MASK) == 0) {
-                    
+
                     // Check if king is in check
                     Vector2f kingPos = {x, y};
                     if (!isSquareAttacked(board, kingPos, enemyColor)) {
@@ -482,7 +489,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                         if (!isSquareAttacked(board, passThrough, enemyColor)) {
                             // Check if the destination square is under attack
                             Vector2f destination = {x, y-2};
-                            if (!isSquareAttacked(board, destination, enemyColor) && 
+                            if (!isSquareAttacked(board, destination, enemyColor) &&
                                 !wouldLeaveKingInCheck(board, y, x, y-2, x, kingsPositions)) {
                                 // King can castle queenside
                                 board[x][y-2] |= MOVABLE_MASK;
@@ -492,5 +499,6 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                 }
             }
             break;
+        } // Added curly braces for scope
     }
 }

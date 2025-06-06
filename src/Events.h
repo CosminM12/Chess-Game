@@ -2,30 +2,29 @@
 #define EVENTS_H
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <stdbool.h>
 #include "util.h"
 #include "engine.h"
+#include "GameState.h" // Include GameState.h for the GameState struct
 
-// Function declaration from main.c for position analysis
-void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
+// Function declaration from main.c for position analysis (if still needed, ensure main.h includes this)
+// void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]); // Removed if main.c doesn't need it.
 
-// External variables
-extern bool showEvaluationBar;
-extern bool showMenu;
+// External variables for game mode and computer player status
 extern int gameMode;
-extern Uint32 moveTimestamp;
+extern bool computerPlaysBlack;
 
-void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]);
-
+// Updated prototypes to accept GameState* state
+void getEvents(SDL_Event event, GameState *state, int *scrollOffset); // Keep if scrollOffset is still external
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize);
 
-void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare);
+void selectAndHold(GameState* state, int squareX, int squareY);
+bool isMoveLegal(GameState* state, int destX, int destY); // Updated signature
+void makeMove(GameState* state, int destX, int destY); // Updated signature
+void deselectPiece(GameState* state); // Updated signature
+void handleMouseInput(GameState* state, int mouseX, int mouseY, int squareSize); // Updated signature
 
-void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[], bool* blackTurn);
-
-void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]);
-
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
+// UPDATED PROTOYPE: add GameState* state parameter (already there)
+void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 
 #endif

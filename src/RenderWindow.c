@@ -7,6 +7,7 @@
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "app_globals.h"
+#include "util.h" // Include util.h to access global constants like boardWidth, sidebar1_width, etc.
 
 // Store the renderer as a static variable for access from other modules
 static SDL_Renderer* globalRenderer = NULL;
@@ -33,12 +34,12 @@ bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** rende
         printf("Renderer failed to init. Error: %s\n", SDL_GetError());
         return false;
     }
-    
+
     // Store the renderer globally
     globalRenderer = *renderer;
-    
+
     mainRenderer = *renderer;  // Store the renderer for external use
-    
+
     return true;
 }
 
@@ -52,9 +53,9 @@ SDL_Renderer* getMainRenderer() {
     return mainRenderer;
 }
 
-void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
+void drawBoard(SDL_Renderer* renderer, int squareSize, int boardOffset, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
     // Board is now on the left side, no offset needed
-    int boardOffset = 0;
+    // The boardOffset parameter is still there but is usually 0 when drawing the main board
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
 
@@ -94,7 +95,7 @@ void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Colo
 SDL_Texture* loadTexture(const char* p_filePath, SDL_Renderer** renderer) {
     SDL_Texture* texture = NULL;
     texture = IMG_LoadTexture(*renderer, p_filePath);
-    
+
     if(texture == NULL) {
         printf("Texture failed to load. Error: %s\n", SDL_GetError());
     }
@@ -129,28 +130,28 @@ void renderPiece(SDL_Rect pieceAtlas, int boardOffset, int squareSize, int line,
     SDL_RenderCopy(*renderer, tex, &src, &dst);
 }
 
-unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextures[2][7], int x, int y, unsigned char color, int screenWidth, int screenHeight) {
+unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextures[2][7], int x, int y, unsigned char color, int screenWidth_local, int screenHeight_local) {
     // Create a semi-transparent overlay
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180); // Semi-transparent black
-    SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
+    SDL_Rect overlay = {0, 0, screenWidth_local, screenHeight_local};
     SDL_RenderFillRect(renderer, &overlay);
-    
+
     // Create a menu box
     int menuWidth = 300;
     int menuHeight = 100;
-    int menuX = (screenWidth - menuWidth) / 2;
-    int menuY = (screenHeight - menuHeight) / 2;
-    
+    int menuX = (screenWidth_local - menuWidth) / 2;
+    int menuY = (screenHeight_local - menuHeight) / 2;
+
     // Draw menu background
     SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255); // Light gray
     SDL_Rect menuRect = {menuX, menuY, menuWidth, menuHeight};
     SDL_RenderFillRect(renderer, &menuRect);
-    
+
     // Draw menu border
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black
     SDL_RenderDrawRect(renderer, &menuRect);
-    
+
     // Draw menu title
     if (globalFont) {
         SDL_Color textColor = {0, 0, 0, 255}; // Black
@@ -159,10 +160,10 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
             SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
             if (textTexture) {
                 SDL_Rect textRect = {
-                    menuX + (menuWidth - textSurface->w) / 2,
-                    menuY + 10,
-                    textSurface->w,
-                    textSurface->h
+                        menuX + (menuWidth - textSurface->w) / 2,
+                        menuY + 10,
+                        textSurface->w,
+                        textSurface->h
                 };
                 SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
                 SDL_DestroyTexture(textTexture);
@@ -170,46 +171,46 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
             SDL_FreeSurface(textSurface);
         }
     }
-    
+
     // Draw promotion options
     int pieceSize = 60;
     int spacing = 10;
     int startX = menuX + (menuWidth - (4 * pieceSize + 3 * spacing)) / 2;
     int pieceY = menuY + menuHeight - pieceSize - 10;
-    
+
     // Define option rectangles
     SDL_Rect queenRect = {startX, pieceY, pieceSize, pieceSize};
     SDL_Rect rookRect = {startX + pieceSize + spacing, pieceY, pieceSize, pieceSize};
     SDL_Rect bishopRect = {startX + 2 * (pieceSize + spacing), pieceY, pieceSize, pieceSize};
     SDL_Rect knightRect = {startX + 3 * (pieceSize + spacing), pieceY, pieceSize, pieceSize};
-    
+
     // Draw pieces
     SDL_RenderCopy(renderer, pieceTextures[color >> 4][QUEEN], NULL, &queenRect);
     SDL_RenderCopy(renderer, pieceTextures[color >> 4][ROOK], NULL, &rookRect);
     SDL_RenderCopy(renderer, pieceTextures[color >> 4][BISHOP], NULL, &bishopRect);
     SDL_RenderCopy(renderer, pieceTextures[color >> 4][KNIGHT], NULL, &knightRect);
-    
+
     // Draw borders around options
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderDrawRect(renderer, &queenRect);
     SDL_RenderDrawRect(renderer, &rookRect);
     SDL_RenderDrawRect(renderer, &bishopRect);
     SDL_RenderDrawRect(renderer, &knightRect);
-    
+
     // Present the menu
     SDL_RenderPresent(renderer);
-    
+
     // Wait for user selection
     SDL_Event event;
     bool selected = false;
     unsigned char selectedPiece = QUEEN | color;
-    
+
     while (!selected) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
                 int mouseX = event.button.x;
                 int mouseY = event.button.y;
-                
+
                 if (mouseX >= queenRect.x && mouseX < queenRect.x + queenRect.w &&
                     mouseY >= queenRect.y && mouseY < queenRect.y + queenRect.h) {
                     selectedPiece = QUEEN | color;
@@ -238,7 +239,7 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
             }
         }
     }
-    
+
     return selectedPiece;
 }
 
@@ -295,16 +296,16 @@ void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x
 
 void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state) {
     // Constants for rendering captured pieces
-    const int capturedPieceSize = 30; // Smaller size for captured pieces
+    const int capturedPieceSize = 40; // Smaller size for captured pieces
     const int padding = 5;
-    const int piecesPerRow = 5; // Number of pieces to display per row in sidebar
-    const int boardWidth = 800; // 8 squares of 100px each
+    const int piecesPerRow = 6; // Number of pieces to display per row in sidebar
 
     SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
 
     // Render White's Captured Pieces (Black's pieces)
-    int startX_whiteCaptured = boardWidth + padding;
-    int startY_whiteCaptured = 150; // Below the timer and move history title
+    // This goes into the 'Captured by Black' box, which is currently a blue box at boardWidth, 100
+    int startX_blackCaptured = boardWidth + padding;
+    int startY_blackCaptured = 140 + padding; // Below the timer box
 
     for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
         unsigned char pieceType = state->whiteCapturedPieces[i];
@@ -313,8 +314,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
 
         SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
         if (tex) {
-            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
-            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
 
             SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
             SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
@@ -322,8 +323,9 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
     }
 
     // Render Black's Captured Pieces (White's pieces)
-    int startX_blackCaptured = boardWidth + padding;
-    int startY_blackCaptured = 350; // Further down for black's captured pieces
+    // This goes into the 'Captured by White' box, which is currently a purple box at boardWidth + sidebar1_width, 250
+    int startX_whiteCaptured = boardWidth + padding;
+    int startY_whiteCaptured = 390 + padding; // Offset for white's captured box
 
     for (int i = 0; i < state->numBlackCapturedPieces; i++) {
         unsigned char pieceType = state->blackCapturedPieces[i];
@@ -332,8 +334,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
 
         SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
         if (tex) {
-            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
-            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
 
             SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
             SDL_RenderCopy(renderer, tex, &srcRect, &destRect);

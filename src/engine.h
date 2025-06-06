@@ -1,3 +1,4 @@
+// src/engine.h
 #ifndef ENGINE_H
 #define ENGINE_H
 
@@ -42,8 +43,8 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
 // Function to find the best move for the AI
 EngineMove findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 
-// Move function for the AI
-void makeEngineMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
+// Corrected prototype for engineMakeMove:
+void engineMakeMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kingsPositions[], int isRealMove); // Changed function name and added 'int isRealMove' parameter
 
 // Function to get the relative score based on the current player's perspective
 int evaluatePosition(unsigned char board[8][8], unsigned char color);

@@ -1,171 +1,285 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdbool.h>
 #include <math.h>
+#include <string.h> // For strlen and strcat
+#include <stdio.h> // For snprintf
 
 #include "Events.h"
 #include "Piece.h"
-#include "engine.h"
-#include "main.h"
-#include "RenderWindow.h"
-#include <stdio.h>
+#include "GameState.h" // Now necessary
+#include "util.h" // For screenWidth, squareSize, etc. from util.c
+#include "app_globals.h" // For global enums/macros
 
-void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
-    while(SDL_PollEvent(&event)) {
-        switch(event.type) {
+const int scrollStep = 20;
+
+// addMoveToHistory is already taking GameState* state, which is good.
+
+void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece) {
+    if (state->moveCount >= MAX_MOVES) return; // Use state->moveCount
+
+    const char *pieceChar;
+    switch (piece & TYPE_MASK) { // Using TYPE_MASK from Piece.h
+        case PAWN:
+            pieceChar = ""; // Pawn usually has no character, just notation like e4
+            break;
+        case KNIGHT:
+            pieceChar = "N";
+            break;
+        case BISHOP:
+            pieceChar = "B";
+            break;
+        case ROOK:
+            pieceChar = "R";
+            break;
+        case QUEEN:
+            pieceChar = "Q";
+            break;
+        case KING:
+            pieceChar = "K";
+            break;
+        default:
+            pieceChar = "?";
+            break;
+    }
+
+    char from[3] = {'a' + startCol, '8' - startRow, '\0'};
+    char to[3] = {'a' + endCol, '8' - endRow, '\0'};
+
+    snprintf(state->moveHistory[state->moveCount].notation, sizeof(state->moveHistory[state->moveCount].notation),
+             "%s%s%s", pieceChar, from, to);
+
+    state->moveCount++;
+}
+
+// In src/Events.c
+void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
             case SDL_QUIT:
-                *gameRunning = false;
+                state->gameRunning = false;
                 break;
+
             case SDL_MOUSEBUTTONDOWN:
-                if(event.button.button == SDL_BUTTON_LEFT) {
-                    mouseActions[0] = true;
+                // Global currentScreenState, currentPromptAction, inputFileNameBuffer are still needed
+                if (currentScreenState == GAME_STATE_PLAYING) {
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        state->mouseActions[0] = true;
+                    }
+                    // Right-click for other actions if implemented
+                    // if (event.button.button == SDL_BUTTON_RIGHT) {
+                    //     state->mouseActions[1] = true;
+                    // }
                 }
                 break;
+
             case SDL_MOUSEBUTTONUP:
-                if(event.button.button == SDL_BUTTON_LEFT) {
-                    mouseActions[1] = true;
+                if (currentScreenState == GAME_STATE_PLAYING) {
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        state->mouseActions[1] = true;
+                    }
                 }
                 break;
+
+            case SDL_MOUSEWHEEL:
+                *scrollOffset -= event.wheel.y * scrollStep;
+                if (*scrollOffset < 0) *scrollOffset = 0;
+
+                // screenHeight should be visible via util.h
+                int maxScroll = (state->moveCount * 25) - screenHeight; // Use state->moveCount and global screenHeight
+                if (maxScroll < 0) maxScroll = 0;
+                if (*scrollOffset > maxScroll) *scrollOffset = maxScroll;
+                break;
+
+            case SDL_TEXTINPUT:
+                if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                    if (strlen(inputFileNameBuffer) + strlen(event.text.text) < sizeof(inputFileNameBuffer)) {
+                        strcat(inputFileNameBuffer, event.text.text);
+                    }
+                }
+                break;
+
             case SDL_KEYDOWN:
-                if(event.key.keysym.sym == SDLK_e) {
-                    // Toggle evaluation bar visibility
-                    extern bool showEvaluationBar;
-                    showEvaluationBar = !showEvaluationBar;
+                if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                    if (event.key.keysym.sym == SDLK_BACKSPACE && strlen(inputFileNameBuffer) > 0) {
+                        inputFileNameBuffer[strlen(inputFileNameBuffer) - 1] = '\0';
+                    } else if (event.key.keysym.sym == SDLK_RETURN) {
+                        if (strlen(inputFileNameBuffer) > 0) {
+                            if (currentPromptAction == PROMPT_ACTION_SAVE) {
+                                saveGameToFile(state, inputFileNameBuffer);
+                            } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+                                loadGameFromFile(state, inputFileNameBuffer);
+                                // After loading, reset history to the loaded state
+                                historyCount = 0; // Clear existing history
+                                currentHistoryIdx = -1; // Reset index
+                                recordGameState(state); // Record the newly loaded state
+                            }
+                        } else {
+                            printf("Filename cannot be empty. Please enter a name.\n");
+                        }
+                        SDL_StopTextInput();
+                        textInputActive = SDL_FALSE;
+                        currentScreenState = GAME_STATE_PLAYING;
+                        currentPromptAction = PROMPT_ACTION_NONE;
+                    } else if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        SDL_StopTextInput();
+                        textInputActive = SDL_FALSE;
+                        currentScreenState = GAME_STATE_PLAYING;
+                        currentPromptAction = PROMPT_ACTION_NONE;
+                        printf("Operation cancelled.\n");
+                    }
                 }
-                else if(event.key.keysym.sym == SDLK_ESCAPE) {
-                    // Show menu when Escape is pressed
-                    showMenu = true;
-                }
+                // Keyboard toggles for showEvaluationBar, showMenu are handled in main.c
+                // Make sure to add computerPlaysBlack, showAnalysis etc. here if Events.c should handle them.
                 break;
         }
     }
 }
 
-bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
-    // Board is now on the left side, not centered
-    return mouseX < 8 * squareSize && mouseY < 8 * squareSize;
+bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth_local, int squareSize_local) { // Using local names to avoid conflict with global util.h
+    int boardStartX = 0;
+    int boardEndX = 8 * squareSize_local; // boardWidth
+    int boardStartY = 0;
+    int boardEndY = 8 * squareSize_local; // screenHeight
+
+    return (mouseX >= boardStartX && mouseX < boardEndX &&
+            mouseY >= boardStartY && mouseY < boardEndY);
 }
 
-void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare) {
-    //toggle active: hold and select
-    pieceActions[0] = true;
-    pieceActions[1] = true;
-
-    //change square to selected
-    board[squareY][squareX] |= SELECTED_MASK;
-
-    //save selected square coords
-    (*selectedSquare).x = squareX;
-    (*selectedSquare).y = squareY;
+void selectAndHold(GameState *state, int squareX, int squareY) {
+    state->pieceActions[0] = true;
+    state->pieceActions[1] = true;
+    state->board[squareY][squareX] |= SELECTED_MASK;
+    state->selectedSquare.x = squareX;
+    state->selectedSquare.y = squareY;
 }
 
-// Check if a move is legal (doesn't leave the king in check)
-bool isMoveLegal(unsigned char board[8][8], int destX, int destY, Vector2f sourceSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+// isMoveLegal now takes GameState* state
+bool isMoveLegal(GameState* state, int destX, int destY) {
     unsigned char tempBoard[8][8];
-    Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
-    
+    Vector2f tempKingsPositions[2] = {state->kingsPositions[0], state->kingsPositions[1]}; // Copy king positions
+
     // Copy the board to a temporary board
-    for(int i = 0; i < 8; i++) {
-        for(int j = 0; j < 8; j++) {
-            tempBoard[i][j] = board[i][j];
-        }
-    }
-    
+    memcpy(tempBoard, state->board, sizeof(unsigned char) * 64);
+
     // Get the color and type of the moving piece
-    int oldX = sourceSquare.x;
-    int oldY = sourceSquare.y;
-    unsigned char movingPiece = board[oldY][oldX];
+    int oldX = state->selectedSquare.x;
+    int oldY = state->selectedSquare.y;
+    unsigned char movingPiece = state->board[oldY][oldX];
     unsigned int pieceType = movingPiece & TYPE_MASK;
     unsigned int color = (movingPiece & COLOR_MASK) >> 4;
-    
+
     // Make the move on the temporary board
     tempBoard[destY][destX] = tempBoard[oldY][oldX];
     tempBoard[oldY][oldX] = 0;
-    
+
     // Update king position if king is moving
     if(pieceType == KING) {
         tempKingsPositions[color].x = destY;
         tempKingsPositions[color].y = destX;
     }
-    
+
     // Check if the king is in check after the move
     return !isCheck(tempBoard, tempKingsPositions[color]);
 }
 
-void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[], bool* blackTurn) {
-    int oldX = (*sourceSquare).x;
-    int oldY = (*sourceSquare).y;
-    
-    unsigned char movingPiece = board[oldY][oldX];
+void makeMove(GameState *state, int destX, int destY) {
+    int oldX = state->selectedSquare.x;
+    int oldY = state->selectedSquare.y;
+
+    unsigned char movingPiece = state->board[oldY][oldX];
     unsigned int pieceType = movingPiece & TYPE_MASK;
     unsigned int color = (movingPiece & COLOR_MASK) >> 4;
-    
+
     bool isPromotion = false;
-    
+
     // Check for pawn promotion
     if(pieceType == PAWN) {
         if((color == 0 && destY == 0) || (color == 1 && destY == 7)) {
             isPromotion = true;
         }
     }
-    
+
     // Check if the move is legal (doesn't leave the king in check)
-    if (!isMoveLegal(board, destX, destY, *sourceSquare, lastDoublePawn, kingsPositions)) {
+    if (!isMoveLegal(state, destX, destY)) { // Pass state
         printf("Illegal move! King would be in check.\n");
-        // Deselect the piece but don't make the move
-        deselectPiece(board, sourceSquare, pieceActions);
-        clearPossibleBoard(board);
+        deselectPiece(state); // Pass state
+        clearPossibleBoard(state->board);
         return;
     }
-    
+
     // Check for capture
-    bool capture = board[destY][destX] != 0;
+    unsigned char capturedPieceOnDest = state->board[destY][destX];
+    unsigned char capturedPieceType = (capturedPieceOnDest & TYPE_MASK);
+    bool isStandardCapture = (capturedPieceType != NONE);
 
-    //move piece to destination
-    board[destY][destX] = board[oldY][oldX];
+    if (isStandardCapture) {
+        unsigned char capturingColor = (movingPiece & COLOR_MASK); // Color of the piece making the capture
+        if ((capturingColor >> 4) == 0) { // White capturing
+            state->whiteCapturedPieces[state->numWhiteCapturedPieces++] = capturedPieceType;
+        } else { // Black capturing
+            state->blackCapturedPieces[state->numBlackCapturedPieces++] = capturedPieceType;
+        }
+    }
 
-    //deselect piece
-    board[destY][destX] &= (~SELECTED_MASK);
-    
+    // Move piece to destination
+    state->board[destY][destX] = state->board[oldY][oldX];
+
+    // Deselect piece
+    state->board[destY][destX] &= (~SELECTED_MASK);
+
     // For kings and rooks, clear the MODIFIER flag
     if (pieceType == KING || pieceType == ROOK) {
         // Clear the MODIFIER flag (set it to 0)
-        board[destY][destX] &= ~MODIFIER;
+        state->board[destY][destX] &= ~MODIFIER;
     }
-    // For other pieces that use MODIFIER (like pawns), set it
+        // For other pieces that use MODIFIER (like pawns), set it
     else if (pieceType == PAWN) {
-        board[destY][destX] |= MODIFIER;
+        state->board[destY][destX] |= MODIFIER;
     }
-    
+
     //---Handle special moves---
-    
+
     // Pawn special moves
-    if(pieceType == PAWN && !isPromotion) {
+    if(pieceType == PAWN) {
         //double pawn push =>  remember for 'En passant'
         if(abs(destY - oldY) == 2) {
             // Store column in x, row in y for consistency with engine.c
-            (*lastDoublePawn).x = destX;  // Column of the pawn
-            (*lastDoublePawn).y = destY;  // Row of the pawn
-            
-            printf("Double pawn push detected: lastDoublePawn set to (%d, %d)\n", 
-                   (int)(*lastDoublePawn).x, (int)(*lastDoublePawn).y);
+            state->lastDoublePushPawn.x = destX;  // Column of the pawn
+            state->lastDoublePushPawn.y = destY;  // Row of the pawn
+
+            printf("Double pawn push detected: lastDoublePawn set to (%d, %d)\n",
+                   state->lastDoublePushPawn.x, state->lastDoublePushPawn.y);
         }
         else {
-            int lastDoubleX = (*lastDoublePawn).x;
-            int lastDoubleY = (*lastDoublePawn).y;
-            
+            int lastDoubleX = state->lastDoublePushPawn.x;
+            int lastDoubleY = state->lastDoublePushPawn.y;
+
             //En passant => delete captured piece
-            if(!capture && abs(destX - oldX) == 1) {
-                printf("En passant capture: Removing pawn at (%d, %d)\n", lastDoubleY, lastDoubleX);
-                board[lastDoubleY][lastDoubleX] = 0;
+            // if not a standard capture AND it was a diagonal move
+            if(!isStandardCapture && abs(destX - oldX) == 1) { // This implies en passant if no piece at dest
+                // Check if the move was actually an en passant capture
+                if(lastDoubleX == destX && lastDoubleY == oldY + (color == 0 ? 1 : -1)) { // Pawn moved to square behind double-pushed pawn
+                    printf("En passant capture executed: removing pawn at (%d, %d)\n", lastDoubleY, lastDoubleX);
+                    state->board[lastDoubleY][lastDoubleX] = NONE;
+
+                    // Add captured pawn to captured pieces list
+                    unsigned char capturedPawnType = PAWN; // En passant always captures a pawn
+                    if (color == 0) { // White capturing, add black pawn to white's captured list
+                        state->whiteCapturedPieces[state->numWhiteCapturedPieces++] = capturedPawnType;
+                    } else { // Black capturing, add white pawn to black's captured list
+                        state->blackCapturedPieces[state->numBlackCapturedPieces++] = capturedPawnType;
+                    }
+                }
             }
 
-            //remove last double pawn
-            (*lastDoublePawn).x = -1.0f;
-            (*lastDoublePawn).y = -1.0f;
+            // Reset lastDoublePawn
+            state->lastDoublePushPawn.x = -1;
+            state->lastDoublePushPawn.y = -1;
         }
     }
-    // King special moves
+        // King special moves
     else if(pieceType == KING) {
         // Handle castling
         if(abs(destX - oldX) == 2) {
@@ -173,22 +287,22 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
             if(destX > oldX) {
                 // Move the rook from the kingside to its new position
                 // Clear the MODIFIER flag on the rook too
-                board[destY][destX-1] = (ROOK | (board[destY][destX] & COLOR_MASK));
-                board[destY][7] = 0; // Remove the rook from its original position
+                state->board[destY][destX-1] = (ROOK | (state->board[destY][destX] & COLOR_MASK));
+                state->board[destY][7] = 0; // Remove the rook from its original position
             }
-            // Queenside castling (long castle)
+                // Queenside castling (long castle)
             else {
                 // Move the rook from the queenside to its new position
                 // Clear the MODIFIER flag on the rook too
-                board[destY][destX+1] = (ROOK | (board[destY][destX] & COLOR_MASK));
-                board[destY][0] = 0; // Remove the rook from its original position
+                state->board[destY][destX+1] = (ROOK | (state->board[destY][destX] & COLOR_MASK));
+                state->board[destY][0] = 0; // Remove the rook from its original position
             }
         }
-        
+
         // Update king position
-        kingsPositions[color].x = destY;
-        kingsPositions[color].y = destX;
-        
+        state->kingsPositions[color].x = destY;
+        state->kingsPositions[color].y = destX;
+
         if(color == 1) {
             printf("Black ");
         }
@@ -198,132 +312,110 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
         printf("king has moved!\n");
     }
 
-    //delete from old position
-    board[oldY][oldX] = 0;
+    // Handle promotion if applicable
+    if (isPromotion) {
+        // Assuming promotion menu is handled elsewhere (e.g., in RenderWindow.c)
+        // For now, auto-promote to Queen for simplicity
+        unsigned char promotedPiece = QUEEN | (color << 4); // Queen of current color
+        state->board[destY][destX] = promotedPiece;
+        printf("Pawn promoted to Queen!\n"); // For debug
+    }
 
-    //delete selected square
-    (*sourceSquare).x = -1.0f;
-    (*sourceSquare).y = -1.0f;
 
-    pieceActions[0] = false;
-    pieceActions[1] = false;
+    // Delete from old position
+    state->board[oldY][oldX] = NONE;
 
-    unsigned int nextColor = color == 0 ? 1 : 0;
-    
-    if(isCheck(board, kingsPositions[nextColor])) {
+    // Add move to history
+    addMoveToHistory(state, oldY, oldX, destY, destX, movingPiece);
+
+    // Deselect square and piece actions
+    state->selectedSquare.x = -1;
+    state->selectedSquare.y = -1;
+    state->pieceActions[0] = false;
+    state->pieceActions[1] = false;
+
+    // Change turn
+    state->blackTurn = !state->blackTurn;
+
+    // Check for check after move
+    unsigned int nextColor = (color == 0) ? 1 : 0;
+    if(isCheck(state->board, state->kingsPositions[nextColor])) {
         printf("In check!\n");
     }
-    
-    // Record timestamp of the move for PvE mode
-    if (gameMode == 2) {
-        moveTimestamp = SDL_GetTicks();
-        printf("Move timestamp recorded: %u\n", moveTimestamp);
-    }
-    
-    // Analyze the new position for the next player
-    displayPositionAnalysis(board, *blackTurn, lastDoublePawn, kingsPositions);
+
+    // The timestamp and position analysis are now handled in main.c after this function returns.
 }
 
-void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pieceActions[]) {
-    int oldX = (*selectedSquare).x;
-    int oldY = (*selectedSquare).y;
+void deselectPiece(GameState *state) {
+    int oldX = state->selectedSquare.x;
+    int oldY = state->selectedSquare.y;
 
-    //deselect piece
-    board[oldY][oldX] &= (~SELECTED_MASK);
-
-    //delete selected sqaure
-    (*selectedSquare).x = -1.0f;;
-    (*selectedSquare).y = -1.0f;
-
-    pieceActions[0] = false;
-    pieceActions[1] = false;
+    state->board[oldY][oldX] &= (~SELECTED_MASK);
+    state->selectedSquare.x = -1;
+    state->selectedSquare.y = -1;
+    state->pieceActions[0] = false;
+    state->pieceActions[1] = false;
 }
 
-void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    //Get square from mouse cursor - board is now on the left side, not centered
-    int squareX = (int)(mouseX / squareSize);
-    int squareY = (int)(mouseY / squareSize);
+void handleMouseInput(GameState *state, int mouseX, int mouseY, int squareSize_local) { // Using local squareSize_local
+    int boardOffset = 0;
+    int squareX = (int) ((mouseX - boardOffset) / squareSize_local);
+    int squareY = (int) (mouseY / squareSize_local);
 
     // Ensure we're within the board bounds
     if (squareX < 0 || squareX > 7 || squareY < 0 || squareY > 7) {
         return;
     }
 
-    /*=================
-    bool vector arrays
-    mouseActions[]:
-    0: mousePressed -----> click button is pressed
-    1: mouseReleased -----> click button is released
-
-    pieceActions[]:
-    0: pieceSelected ----> piece is selected (has been pressed on and (maybe) released)
-    1: pieceHolding ----> piece is holded with mouse click and follows the cursor
-    =================*/
-
-    // In PvE mode, player can only move white pieces (when blackTurn is false)
-    if (gameMode == 2 && *blackTurn) {
-        return; // Skip player input when it's black's turn in PvE mode
-    }
-
-    if(mouseActions[0]) { //MOUSE CLICKED
-        //NO SELECTED PIECE => SELECT
-        if(!pieceActions[0]) {
-            if(board[squareY][squareX] != 0 && !opposingColor(board[squareY][squareX], *blackTurn)) {
-                selectAndHold(board, squareX, squareY, pieceActions, selectedSquare);
-
-                // Generate legal moves
-                generatePossibleMoves(board, squareY, squareX, lastDoublePawn);
-            }
+    // Only process board input if in GAME_STATE_PLAYING
+    // currentScreenState is global from app_globals.h
+    if (currentScreenState == GAME_STATE_PLAYING) {
+        // Only allow moves if it's the current player's turn (PvP or player's turn in PvE)
+        // gameMode and computerPlaysBlack are global externs in main.c
+        bool isComputerTurn = (gameMode == 2 && state->blackTurn && computerPlaysBlack);
+        if (isComputerTurn) {
+            return; // Skip player input when it's computer's turn in PvE mode
         }
-        //A SELECTED PIECE  => TRY TO MOVE
-        else {
-            //VALID MOVE => MOVE PIECE
-            if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
-                *blackTurn = !(*blackTurn);
-                clearPossibleBoard(board);
-            }
-            //NOT VALID => CANCEL SELECT
-            else { 
-                deselectPiece(board, selectedSquare, pieceActions);
-                clearPossibleBoard(board);
-            }
-        }
-    }
-    else if(mouseActions[1]) { //MOUSE RELEASED
-    
-        //HOLDING PIECE
-        if(pieceActions[1]) {
 
-            //dest=src => STOP HOLD
-            if(squareX == (*selectedSquare).x && squareY == (*selectedSquare).y) {
-                pieceActions[1] = false;
-            }
-
-            //different dest => MOVE or DESELECT
-            else {
-                if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
-                    *blackTurn = !(*blackTurn);
-                    clearPossibleBoard(board);
+        if (state->mouseActions[0]) { // MOUSE CLICKED
+            if (!state->pieceActions[0]) { // NO SELECTED PIECE => SELECT
+                if (state->board[squareY][squareX] != NONE &&
+                    !opposingColor(state->board[squareY][squareX], state->blackTurn)) { // Check if it's current player's piece
+                    selectAndHold(state, squareX, squareY); // Pass state
+                    generatePossibleMoves(state->board, squareY, squareX, &state->lastDoublePushPawn); // Pass board and lastDoublePawn
                 }
-                else {
-                    deselectPiece(board, selectedSquare, pieceActions);
-                    clearPossibleBoard(board);
+            } else { // A SELECTED PIECE => TRY TO MOVE
+                if ((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                    makeMove(state, squareX, squareY); // Pass state
+                    clearPossibleBoard(state->board);
+                } else {
+                    deselectPiece(state); // Pass state
+                    clearPossibleBoard(state->board);
                 }
             }
-        }
-        //NOT HOLDING => 
-        else {
-          if((board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-            makeMove(board, squareX, squareY, selectedSquare, pieceActions, lastDoublePawn, kingsPositions, blackTurn);
-            *blackTurn = !(*blackTurn);
-            clearPossibleBoard(board);
-          }
-          else {
-              deselectPiece(board, selectedSquare, pieceActions);
-              clearPossibleBoard(board);
-          }  
+        } else if (state->mouseActions[1]) { // MOUSE RELEASED
+            if (state->pieceActions[1]) { // HOLDING PIECE (drag and drop scenario)
+                if (squareX == state->selectedSquare.x && squareY == state->selectedSquare.y) {
+                    state->pieceActions[1] = false; // Stop holding, but piece remains selected
+                } else {
+                    if ((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                        makeMove(state, squareX, squareY); // Pass state
+                        clearPossibleBoard(state->board);
+                    } else {
+                        deselectPiece(state); // Pass state
+                        clearPossibleBoard(state->board);
+                    }
+                }
+            } else { // NOT HOLDING (click-click scenario)
+                // If a piece was selected previously and now clicked on a new valid square
+                if (state->pieceActions[0] && (state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                    makeMove(state, squareX, squareY); // Pass state
+                    clearPossibleBoard(state->board);
+                } else { // Clicked on empty/invalid square or same selected square
+                    deselectPiece(state); // Pass state
+                    clearPossibleBoard(state->board);
+                }
+            }
         }
     }
 }
