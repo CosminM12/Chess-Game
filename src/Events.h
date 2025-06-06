@@ -21,7 +21,4 @@ void handleMouseInput(GameState* state, int mouseX, int mouseY);
 // UPDATED PROTOYPE: add GameState* state parameter
 void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 
-// REMOVED: extern Move moveHistory[MAX_MOVES];
-// REMOVED: extern int moveCount;
-
 #endif
