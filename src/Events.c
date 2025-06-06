@@ -26,6 +26,17 @@ void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
                     mouseActions[1] = true;
                 }
                 break;
+            case SDL_KEYDOWN:
+                if(event.key.keysym.sym == SDLK_e) {
+                    // Toggle evaluation bar visibility
+                    extern bool showEvaluationBar;
+                    showEvaluationBar = !showEvaluationBar;
+                }
+                else if(event.key.keysym.sym == SDLK_ESCAPE) {
+                    // Show menu when Escape is pressed
+                    showMenu = true;
+                }
+                break;
         }
     }
 }
@@ -178,6 +189,12 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
         printf("In check!\n");
     }
     
+    // Record timestamp of the move for PvE mode
+    if (gameMode == 2) {
+        moveTimestamp = SDL_GetTicks();
+        printf("Move timestamp recorded: %u\n", moveTimestamp);
+    }
+    
     // Analyze the new position for the next player
     displayPositionAnalysis(board, *blackTurn, lastDoublePawn, kingsPositions);
 }
@@ -213,6 +230,11 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
     0: pieceSelected ----> piece is selected (has been pressed on and (maybe) released)
     1: pieceHolding ----> piece is holded with mouse click and follows the cursor
     =================*/
+
+    // In PvE mode, player can only move white pieces (when blackTurn is false)
+    if (gameMode == 2 && *blackTurn) {
+        return; // Skip player input when it's black's turn in PvE mode
+    }
 
     if(mouseActions[0]) { //MOUSE CLICKED
         //NO SELECTED PIECE => SELECT

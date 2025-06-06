@@ -9,6 +9,12 @@
 // Function declaration from main.c for position analysis
 void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
 
+// External variables
+extern bool showEvaluationBar;
+extern bool showMenu;
+extern int gameMode;
+extern Uint32 moveTimestamp;
+
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]);
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize);
