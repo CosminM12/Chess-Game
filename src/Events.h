@@ -2,10 +2,9 @@
 #define EVENTS_H
 
 #include "util.h"
-#include "GameState.h"
+#include "GameState.h" // This now includes app_globals.h and declares history globals/prototypes
 
-#define MAX_MOVES 1024
-
+// MAX_MOVES is defined in app_globals.h
 
 void getEvents(SDL_Event event, GameState *state, int *scrollOffset);
 
@@ -17,17 +16,12 @@ void makeMove(GameState* state, int destX, int destY);
 
 void deselectPiece(GameState* state);
 
-//void handleMouseInput(GameState* state, int mouseX, int mouseY, int screenWidth, int squareSize);
-
 void handleMouseInput(GameState* state, int mouseX, int mouseY);
 
-void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece);
+// Prototype for addMoveToHistory (matches current implementation in Events.c)
+void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 
-
-typedef struct {
-    char notation[10];
-} Move;
-
+// Global move history and count (defined in main.c)
 extern Move moveHistory[MAX_MOVES];
 extern int moveCount;
 

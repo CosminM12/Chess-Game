@@ -20,10 +20,10 @@ GamePromptActionType currentPromptAction = PROMPT_ACTION_NONE;
 char inputFileNameBuffer[256] = "";
 SDL_bool textInputActive = SDL_FALSE;
 
-//GameState historyStates[MAX_HISTORY_STATES];
-//int historyCount = 0;
-//int currentHistoryIdx = -1;
-// --- END GLOBAL VARIABLE DEFINITIONS ---
+GameState historyStates[MAX_HISTORY_STATES];
+int historyCount = 0;
+int currentHistoryIdx = -1;
+// --- END GLOBAL VARIABLE DEFINITIONS ---r
 
 
 Move moveHistory[MAX_MOVES];

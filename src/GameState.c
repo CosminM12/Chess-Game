@@ -60,16 +60,16 @@ void saveGameToFile(GameState* state, const char* filePath) {
     fprintf(file, "BLACK_TURN:%d\n", state->blackTurn);
     fprintf(file, "WHITE_TIME:%d\n", state->whiteTimeMs);
     fprintf(file, "BLACK_TIME:%d\n", state->blackTimeMs);
-    fprintf(file, "SELECTED_SQUARE_X:%.2f\n", state->selectedSquare.x);
-    fprintf(file, "SELECTED_SQUARE_Y:%.2f\n", state->selectedSquare.y);
+    fprintf(file, "SELECTED_SQUARE_X:%d\n", state->selectedSquare.x);
+    fprintf(file, "SELECTED_SQUARE_Y:%d\n", state->selectedSquare.y);
 
-    fprintf(file, "WHITE_KING_POS_X:%.2f\n", state->kingsPositions[0].x);
-    fprintf(file, "WHITE_KING_POS_Y:%.2f\n", state->kingsPositions[0].y);
-    fprintf(file, "BLACK_KING_POS_X:%.2f\n", state->kingsPositions[1].x);
-    fprintf(file, "BLACK_KING_POS_Y:%.2f\n", state->kingsPositions[1].y);
+    fprintf(file, "WHITE_KING_POS_X:%d\n", state->kingsPositions[0].x);
+    fprintf(file, "WHITE_KING_POS_Y:%d\n", state->kingsPositions[0].y);
+    fprintf(file, "BLACK_KING_POS_X:%d\n", state->kingsPositions[1].x);
+    fprintf(file, "BLACK_KING_POS_Y:%d\n", state->kingsPositions[1].y);
 
-    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_X:%.2f\n", state->lastDoublePushPawn.x);
-    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_Y:%.2f\n", state->lastDoublePushPawn.y);
+    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_X:%d\n", state->lastDoublePushPawn.x);
+    fprintf(file, "LAST_DOUBLE_PUSH_PAWN_Y:%d\n", state->lastDoublePushPawn.y);
 
     fprintf(file, "NUM_WHITE_CAPTURED:%d\n", state->numWhiteCapturedPieces);
     for (int i = 0; i < state->numWhiteCapturedPieces; ++i) {
