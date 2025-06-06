@@ -7,6 +7,7 @@
 #include "Piece.h"
 #include "engine.h"
 #include "main.h"
+#include "RenderWindow.h"
 #include <stdio.h>
 
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
@@ -62,7 +63,7 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
     bool isRook = (pieceType == ROOK);
     
     // For kings and rooks, always clear the MODIFIER flag to mark they've moved
-    if (isKing || isRook) {
+    if (isKing || isRook) { 
         // Clear the MODIFIER flag from the piece before moving it
         board[oldY][oldX] &= ~MODIFIER;
     }
@@ -80,7 +81,7 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
         loadPieceTextures(pieceTextures, &renderer);
         
         // Show promotion menu and get selected piece
-        promotedPiece = showPromotionMenu(renderer, pieceTextures, destX, destY, color);
+        promotedPiece = showPromotionMenu(renderer, pieceTextures, destX, destY, color, 1200, 800);
         
         // Place the promoted piece
         board[destY][destX] = promotedPiece;

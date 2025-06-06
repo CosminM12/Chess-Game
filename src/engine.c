@@ -200,16 +200,16 @@ bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned cha
     int pawnDir = (attackerColor == 0) ? 1 : -1;
     
     // Check diagonal pawn captures
-    if (position.x - pawnDir >= 0 && position.x - pawnDir < 8) {
+    if (position.x + pawnDir >= 0 && position.x + pawnDir < 8) {
         if (position.y - 1 >= 0) {
-            unsigned char piece = board[position.x - pawnDir][position.y - 1];
+            unsigned char piece = board[position.x + pawnDir][position.y - 1];
             if ((piece & TYPE_MASK) == PAWN && ((piece & COLOR_MASK) >> 4) == attackerColor) {
                 return true;
             }
         }
         
         if (position.y + 1 < 8) {
-            unsigned char piece = board[position.x - pawnDir][position.y + 1];
+            unsigned char piece = board[position.x + pawnDir][position.y + 1];
             if ((piece & TYPE_MASK) == PAWN && ((piece & COLOR_MASK) >> 4) == attackerColor) {
                 return true;
             }
@@ -632,8 +632,8 @@ void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePa
         
         // Reset lastDoublePawn after any move that's not a double push, but only for real moves
         if (isRealMove) {
-            lastDoublePawn->x = -1;
-            lastDoublePawn->y = -1;
+        lastDoublePawn->x = -1;
+        lastDoublePawn->y = -1;
         }
     }
 
@@ -1097,10 +1097,10 @@ int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maxi
     if (depth == 0) {
         return evaluatePosition(board, maximizing ? color : color ^ 0x10);
     }
-    
+
     MoveList moveList;
     generateLegalMoves(board, color, &moveList, lastDoublePawn, kings);
-    
+
     // Check for checkmate or stalemate
     if (moveList.count == 0) {
         if (isKingInCheck(board, kings[color], color)) {
@@ -1140,7 +1140,7 @@ int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maxi
         }
         
         return maxEval;
-    } else {
+        } else {
         int minEval = 100000;
         
         for (int i = 0; i < moveList.count; i++) {
