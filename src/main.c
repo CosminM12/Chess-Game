@@ -223,8 +223,8 @@ int main() {
 
         // --- NEW CODE STARTS HERE ---
         // Define positions for your Save and Load buttons (ensure these match your rendering in RenderWindow.c or main.c)
-        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 130, 40};
-        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 130, 40};
+        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
 
         if (gameState.mouseActions[0]) { // Check for a left mouse button down event
             // Check if Save Game button was clicked
@@ -346,11 +346,11 @@ int main() {
 
         SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
         SDL_RenderFillRect(renderer, &saveButton);
-        renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 10);
+        renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y);
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
         SDL_RenderFillRect(renderer, &loadButton);
-        renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 10);
+        renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y);
 
 
 
