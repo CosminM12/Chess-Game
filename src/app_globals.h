@@ -2,22 +2,23 @@
 #ifndef APP_GLOBALS_H
 #define APP_GLOBALS_H
 
-#include <SDL2/SDL.h> // Include SDL2 for SDL_bool if it's used with global variables
+#include <SDL2/SDL.h> // Required for SDL_bool
 
-// Define the enum for game screen states
+// Enum for the overall screen state of the application
 typedef enum {
     GAME_STATE_PLAYING,
-    GAME_STATE_PROMPT_FILENAME
+    GAME_STATE_PROMPT_FILENAME // Unified state for both save and load prompts
 } GameScreenState;
 
+// Enum to specify the action associated with the filename prompt
 typedef enum {
     PROMPT_ACTION_NONE, // No prompt active
     PROMPT_ACTION_SAVE, // Prompt for saving
     PROMPT_ACTION_LOAD  // Prompt for loading
 } GamePromptActionType;
 
+
 // Declare global variables using 'extern'
-// This tells the compiler that these variables are defined elsewhere
 extern GameScreenState currentScreenState;
 extern GamePromptActionType currentPromptAction;
 extern char inputFileNameBuffer[256]; // Renamed for clarity, handles both save and load input

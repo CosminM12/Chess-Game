@@ -8,16 +8,20 @@
 #include "Events.h"
 #include "Piece.h"
 #include "GameState.h"
-#include "util.h"        // <--- ADDED: Was missing based on common functions like screenHeight
+#include "util.h"        // <--- ADDED: Required for constants like screenHeight, boardWidth, squareSize
 #include "app_globals.h"
 
 const int scrollStep = 20;
+
+// The moveHistory and moveCount globals are defined in main.c,
+// but declared as extern in Events.h and app_globals.h (if applicable)
+// make sure Events.h also declares them as extern if they are used by other files
 
 void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece) {
     if (moveCount >= MAX_MOVES) return;
 
     const char *pieceChar;
-    switch (piece & TYPE_MASK) {
+    switch (piece & TYPE_MASK) { // Using TYPE_MASK from Piece.h
         case PAWN:
             pieceChar = "";
             break;
@@ -79,10 +83,11 @@ void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
                 break;
 
             case SDL_MOUSEWHEEL:
+                // Mouse wheel should generally work regardless of currentScreenState
                 *scrollOffset -= event.wheel.y * scrollStep;
                 if (*scrollOffset < 0) *scrollOffset = 0;
 
-                // Make sure screenHeight and moveCount are accessible globals, which they are via app_globals.h
+                // screenHeight should be visible via util.h
                 int maxScroll = (moveCount * 25) - screenHeight;
                 if (maxScroll < 0) maxScroll = 0;
                 if (*scrollOffset > maxScroll) *scrollOffset = maxScroll;
@@ -247,7 +252,7 @@ void handleMouseInput(GameState *state, int mouseX, int mouseY) {
                     makeMove(state, squareX, squareY);
                     clearPossibleBoard(state->board);
                 } else {
-                    deselectPiece(state);
+                    deselectPiece(state); // If not valid, deselect
                     clearPossibleBoard(state->board);
                 }
             }
@@ -264,24 +269,33 @@ void handleMouseInput(GameState *state, int mouseX, int mouseY) {
                         clearPossibleBoard(state->board);
                     }
                 }
-            } else {
-                if ((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
-                    makeMove(state, squareX, squareY);
-                } else {
-                    deselectPiece(state);
-                    clearPossibleBoard(state->board);
-                }
+            } else { // Clicked without holding, or released outside selected square
+                // This 'else' block logic often leads to unintended deselects if the primary click was already handled.
+                // Re-evaluating: The inner 'else' for 'if (state->pieceActions[1])' is for when a piece IS held.
+                // The outer 'else' for 'if (state->pieceActions[0])' is for when a piece is NOT selected, this block is correct for initiating a select.
+                // The outer 'else' for 'if (state->mouseActions[0])' (i.e. 'else if (state->mouseActions[1])') handles mouse release.
+                // The additional 'else' for 'if (state->pieceActions[1])' (inside MOUSE RELEASED) is problematic.
+                // If a piece was not held, but mouse was released, and a square is movable, make a move?
+                // This logic seems a bit redundant or potentially incorrect.
+                // Let's comment it out for now as the 'makeMove' and 'deselectPiece' are already handled
+                // in the 'if (state->pieceActions[1])' branch.
+                // if ((state->board[squareY][squareX] & MOVABLE_MASK) == MOVABLE_MASK) {
+                //     makeMove(state, squareX, squareY);
+                // } else {
+                //     deselectPiece(state);
+                //     clearPossibleBoard(state->board);
+                // }
             }
         }
     }
-    // <--- REMOVED: Save/Load button handling (it's now in main.c)
+    // <--- REMOVED: Save/Load button handling from here. It's now handled exclusively in main.c.
     // if (mouseX >= (boardWidth + 10) && mouseX <= (boardWidth + 10 + 130) &&
     //     mouseY >= (screenHeight - 140) && mouseY <= (screenHeight - 140 + 40)) {
     //     printf("Save Game button clicked!\n");
-    //     saveGameToFile(state, inputFileNameBuffer);
+    //     saveGameToFile(state, "saved_game.txt");
     // } else if (mouseX >= (boardWidth + 160) && mouseX <= (boardWidth + 160 + 130) &&
     //            mouseY >= (screenHeight - 140) && mouseY <= (screenHeight - 140 + 40)) {
     //     printf("Load Game button clicked!\n");
-    //     loadGameFromFile(state, inputFileNameBuffer);
+    //     loadGameFromFile(state, "saved_game.txt");
     // }
 }
