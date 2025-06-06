@@ -1,0 +1,1 @@
+CMakeLists.txt not found in /Users/vladt/Desktop/vladt/university/uni-courses/sem2/PT/Chess-Game/src Select CMakeLists.txt
