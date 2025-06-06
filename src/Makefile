@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -g
-SRC = main.c RenderWindow.c Piece.c Events.c util.c engine.c
+SRC = main.c RenderWindow.c Piece.c Events.c util.c engine.c GameState.c app_globals.c
 OBJ = $(SRC:.c=.o)
 OUT = program
 
@@ -16,4 +16,5 @@ $(OUT): $(OBJ)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 #Clean
-# rm -f $(OBJ) $(OUT)
+clean:
+	rm -f $(OBJ) $(OUT)

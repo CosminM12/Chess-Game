@@ -4,13 +4,16 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
-// #include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_mixer.h>
+#include <string.h>
 
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "Events.h"
 #include "util.h"
 #include "engine.h"
+#include "GameState.h"
+#include "app_globals.h"
 
 /*----------Variable declaration------------*/
 bool gameRunning = true;
@@ -18,31 +21,38 @@ bool gameRunning = true;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
+// Screen dimensions are now defined in app_globals.c
+
 SDL_Color color_light = {240, 240, 240, 255};
 SDL_Color color_dark = {119, 149, 86, 255};
 SDL_Color color_clicked = {248, 255, 41, 145};
 SDL_Color color_possible = {200, 20, 20, 255};
 SDL_Color color_risky = {255, 128, 0, 255}; // Orange color for risky moves
 
-const int screenWidth=1200, screenHeight=800;
-const int squareSize=100;
+// Timer variables
+int whiteTimeMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+int blackTimeMs = 5 * 60 * 1000;
+char whiteTimerStr[16];
+char blackTimerStr[16];
 
-Uint64 currentTick, lastTick;
-double deltaTime;
+// Move history scroll offset
+int moveHistoryScrollOffset = 0;
 
 // Engine variables
 bool engineEnabled = false;
 bool showAnalysis = false;
 bool computerPlaysBlack = false;
-bool showEvaluationBar = true; // New variable to control evaluation bar visibility
-bool showMenu = true; // Variable to control menu visibility
+bool showEvaluationBar = false;
+bool showMenu = false;
 int gameMode = 0; // 0 = not selected, 1 = PvP, 2 = PvE
 Uint32 moveTimestamp = 0; // Timestamp of the last player move
 
+Uint64 currentTick, lastTick;
+double deltaTime;
 
 /*---------Helper functions-----------*/
 bool init() {
-    if(SDL_Init(SDL_INIT_VIDEO) > 0) {
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) > 0) {
         printf("SDL_Init has failed. Error: %s\n", SDL_GetError());
     }
     if(!(IMG_Init(IMG_INIT_PNG))) {
@@ -50,6 +60,10 @@ bool init() {
     }
     if(TTF_Init() == -1) {
         printf("TTF_Init has failed. Error: %s\n", TTF_GetError());
+        return false;
+    }
+    if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer failed: %s\n", Mix_GetError());
         return false;
     }
 
@@ -66,7 +80,14 @@ void printfBoard(unsigned char board[8][8]) {
     putchar('\n');
 }
 
+// Format time as MM:SS
+void formatTime(char *buffer, int timeMs) {
+    int totalSeconds = timeMs / 1000;
+    int minutes = totalSeconds / 60;
+    int seconds = totalSeconds % 60;
 
+    snprintf(buffer, 16, "%02d:%02d", minutes, seconds);
+}
 
 // Function to draw the evaluation bar
 void drawEvaluationBar(SDL_Renderer* renderer, int score) {
@@ -96,53 +117,34 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     SDL_RenderDrawRect(renderer, &borderRect);
     
     // Draw evaluation value
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20);
-    if (font) {
-        char scoreText[32];
-        snprintf(scoreText, sizeof(scoreText), "%.2f", score / 100.0f);
-        
-        SDL_Color textColor = {255, 255, 255, 255};
-        SDL_Surface* textSurface = TTF_RenderText_Solid(font, scoreText, textColor);
-        if (textSurface) {
-            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-            if (textTexture) {
-                SDL_Rect textRect = {
-                    barX - 50,  // Position to the left of the bar
-                    barY + barHeight + 5,  // Below the bar
-                    textSurface->w,
-                    textSurface->h
-                };
-                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-                SDL_DestroyTexture(textTexture);
-            }
-            SDL_FreeSurface(textSurface);
-        }
-        TTF_CloseFont(font);
-    }
+    char scoreText[32];
+    snprintf(scoreText, sizeof(scoreText), "%.2f", score / 100.0f);
     
-    // Reset render color
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_Color textColor = {255, 255, 255, 255};
+    renderText(renderer, scoreText, textColor, barX - 50, barY + barHeight + 5);
 }
 
-
-
 // Function to make the computer move
-void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    unsigned char color = *blackTurn ? 1 : 0;
-    Move bestMove = findBestMove(board, color, lastDoublePawn, kingsPositions);
+void makeComputerMove(GameState* state) {
+    unsigned char color = state->blackTurn ? 1 : 0;
+    EngineMove bestMove = findBestMove(state->board, color, &state->lastDoublePushPawn, state->kingsPositions);
     
     if (bestMove.from.x != -1) {
-        makeEngineMove(board, bestMove, lastDoublePawn, kingsPositions);
-        *blackTurn = !*blackTurn;
+        // Update the selected square to the piece we want to move
+        state->selectedSquare.x = bestMove.from.y;
+        state->selectedSquare.y = bestMove.from.x;
+        
+        // Make the move
+        makeMove(state, bestMove.to.y, bestMove.to.x);
         
         // Check for checkmate or stalemate after the move
-        unsigned char nextColor = *blackTurn ? 1 : 0;
+        unsigned char nextColor = state->blackTurn ? 1 : 0;
         MoveList moveList;
-        generateMoves(board, nextColor, &moveList, lastDoublePawn);
+        generateMoves(state->board, nextColor, &moveList, &state->lastDoublePushPawn);
         
         if (moveList.count == 0) {
             // Check if the king is in check
-            if (isCheck(board, kingsPositions[nextColor])) {
+            if (isCheck(state->board, state->kingsPositions[nextColor])) {
                 printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
             } else {
                 printf("Stalemate! Game is drawn.\n");
@@ -153,9 +155,6 @@ void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* last
 
 // Function to draw game status text (check, checkmate, stalemate)
 void drawGameStatus(SDL_Renderer* renderer, bool isInCheck, bool isGameOver, bool isStalemate, bool blackTurn) {
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24);
-    if (!font) return;
-    
     SDL_Color textColor = {255, 0, 0, 255}; // Red for check/checkmate
     if (isStalemate) textColor = (SDL_Color){255, 255, 0, 255}; // Yellow for stalemate
     
@@ -171,24 +170,8 @@ void drawGameStatus(SDL_Renderer* renderer, bool isInCheck, bool isGameOver, boo
     }
     
     if (statusText[0] != '\0') {
-        SDL_Surface* textSurface = TTF_RenderText_Solid(font, statusText, textColor);
-        if (textSurface) {
-            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-            if (textTexture) {
-                SDL_Rect textRect = {
-                    (screenWidth - textSurface->w) / 2,
-                    10,  // Top of the screen
-                    textSurface->w,
-                    textSurface->h
-                };
-                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-                SDL_DestroyTexture(textTexture);
-            }
-            SDL_FreeSurface(textSurface);
-        }
+        renderText(renderer, statusText, textColor, (boardWidth - 200) / 2, 10);
     }
-    
-    TTF_CloseFont(font);
 }
 
 // Function to analyze the current position for display
@@ -253,122 +236,151 @@ SDL_Renderer* getMainRenderer() {
     return renderer;
 }
 
-// Function to draw the menu overlay
-bool drawMenu(SDL_Renderer* renderer, int screenWidth, int screenHeight, int* selectedMode) {
-    // Semi-transparent background
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180); // Dark semi-transparent background
-    SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
-    SDL_RenderFillRect(renderer, &overlay);
+// Draw sidebar with timer, captured pieces, move history, and buttons
+void drawSidebar(SDL_Renderer* renderer, GameState* state) {
+    // Draw sidebar background
+    SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
+    SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+    SDL_RenderFillRect(renderer, &sidebar_background);
     
-    // Load font
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32);
-    if (!font) {
-        printf("Failed to load font: %s\n", TTF_GetError());
-        return false;
-    }
+    // Timer section
+    SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, 100};
+    SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+    SDL_RenderFillRect(renderer, &timerBox);
     
-    // Title
-    SDL_Color titleColor = {255, 215, 0, 255}; // Gold color
-    SDL_Surface* titleSurface = TTF_RenderText_Solid(font, "Chess Game", titleColor);
-    SDL_Texture* titleTexture = SDL_CreateTextureFromSurface(renderer, titleSurface);
-    SDL_Rect titleRect = {
-        (screenWidth - titleSurface->w) / 2,
-        screenHeight / 4 - titleSurface->h / 2,
-        titleSurface->w,
-        titleSurface->h
-    };
-    SDL_RenderCopy(renderer, titleTexture, NULL, &titleRect);
+    formatTime(whiteTimerStr, whiteTimeMs);
+    formatTime(blackTimerStr, blackTimeMs);
     
-    // Button dimensions
-    int buttonWidth = 200;
-    int buttonHeight = 60;
-    int buttonSpacing = 40;
+    renderText(renderer, "White:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 10);
+    renderText(renderer, whiteTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 10);
     
-    // PvP Button
-    SDL_Color buttonColor = {255, 255, 255, 255}; // White text
-    SDL_Surface* pvpSurface = TTF_RenderText_Solid(font, "Player vs Player", buttonColor);
-    SDL_Texture* pvpTexture = SDL_CreateTextureFromSurface(renderer, pvpSurface);
+    renderText(renderer, "Black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 40);
+    renderText(renderer, blackTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 40);
     
-    SDL_Rect pvpButtonRect = {
-        (screenWidth - buttonWidth) / 2,
-        screenHeight / 2 - buttonHeight - buttonSpacing / 2,
-        buttonWidth,
-        buttonHeight
-    };
+    // Captured pieces section
+    renderText(renderer, "Captured by white:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 100 + 10);
+    renderCapturedPieces(renderer, state);
     
-    SDL_SetRenderDrawColor(renderer, 50, 100, 150, 255); // Button background color
-    SDL_RenderFillRect(renderer, &pvpButtonRect);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // Button border color
-    SDL_RenderDrawRect(renderer, &pvpButtonRect);
+    renderText(renderer, "Captured by black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 350 + 10);
     
-    SDL_Rect pvpTextRect = {
-        (screenWidth - pvpSurface->w) / 2,
-        pvpButtonRect.y + (buttonHeight - pvpSurface->h) / 2,
-        pvpSurface->w,
-        pvpSurface->h
-    };
-    SDL_RenderCopy(renderer, pvpTexture, NULL, &pvpTextRect);
+    // Move history section
+    renderText(renderer, "MOVE HISTORY:", (SDL_Color){255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
     
-    // PvE Button
-    SDL_Surface* pveSurface = TTF_RenderText_Solid(font, "Player vs Computer", buttonColor);
-    SDL_Texture* pveTexture = SDL_CreateTextureFromSurface(renderer, pveSurface);
+    const int moveHeight = 25;
+    int visibleStart = moveHistoryScrollOffset / moveHeight;
+    int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
     
-    SDL_Rect pveButtonRect = {
-        (screenWidth - buttonWidth) / 2,
-        screenHeight / 2 + buttonSpacing / 2,
-        buttonWidth,
-        buttonHeight
-    };
-    
-    SDL_SetRenderDrawColor(renderer, 50, 100, 150, 255); // Button background color
-    SDL_RenderFillRect(renderer, &pveButtonRect);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // Button border color
-    SDL_RenderDrawRect(renderer, &pveButtonRect);
-    
-    SDL_Rect pveTextRect = {
-        (screenWidth - pveSurface->w) / 2,
-        pveButtonRect.y + (buttonHeight - pveSurface->h) / 2,
-        pveSurface->w,
-        pveSurface->h
-    };
-    SDL_RenderCopy(renderer, pveTexture, NULL, &pveTextRect);
-    
-    // Clean up
-    SDL_FreeSurface(titleSurface);
-    SDL_DestroyTexture(titleTexture);
-    SDL_FreeSurface(pvpSurface);
-    SDL_DestroyTexture(pvpTexture);
-    SDL_FreeSurface(pveSurface);
-    SDL_DestroyTexture(pveTexture);
-    TTF_CloseFont(font);
-    
-    // Check for button clicks
-    int mouseX, mouseY;
-    Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
-    
-    if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-        if (mouseX >= pvpButtonRect.x && mouseX <= pvpButtonRect.x + pvpButtonRect.w &&
-            mouseY >= pvpButtonRect.y && mouseY <= pvpButtonRect.y + pvpButtonRect.h) {
-            // PvP button clicked
-            *selectedMode = 1;
-            printf("Player vs Player mode selected\n");
-            return true;
-        }
+    for (int i = visibleStart; i < visibleEnd && i < state->moveCount; ++i) {
+        char buffer[64];
+        sprintf(buffer, "%d. %s", (i + 1), state->moveHistory[i].notation);
         
-        if (mouseX >= pveButtonRect.x && mouseX <= pveButtonRect.x + pveButtonRect.w &&
-            mouseY >= pveButtonRect.y && mouseY <= pveButtonRect.y + pveButtonRect.h) {
-            // PvE button clicked
-            *selectedMode = 2;
-            printf("Player vs Computer mode selected\n");
-            return true;
+        int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
+        
+        if (y >= 40 && y < screenHeight - 10) {
+            renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255},
+                       boardWidth + sidebar1_width + 15, y);
         }
     }
     
-    return false;
+    // Buttons section
+    SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+    SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
+    SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
+    SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+    
+    // Save button
+    SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green
+    SDL_RenderFillRect(renderer, &saveButton);
+    renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 5);
+    
+    // Load button
+    SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue
+    SDL_RenderFillRect(renderer, &loadButton);
+    renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 5);
+    
+    // Undo button
+    SDL_SetRenderDrawColor(renderer, 150, 50, 0, 255); // Orange
+    SDL_RenderFillRect(renderer, &undoButton);
+    renderText(renderer, "Undo", (SDL_Color){255, 255, 255, 255}, undoButton.x + 40, undoButton.y + 5);
+    
+    // Redo button
+    SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255); // Cyan
+    SDL_RenderFillRect(renderer, &redoButton);
+    renderText(renderer, "Redo", (SDL_Color){255, 255, 255, 255}, redoButton.x + 40, redoButton.y + 5);
 }
 
-int main(int argc, char* argv[]) {
+// Draw filename prompt overlay
+void drawFilenamePrompt(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+    SDL_Rect dimmer = {0, 0, screenWidth, screenHeight};
+    SDL_RenderFillRect(renderer, &dimmer);
+    
+    SDL_Rect promptBox = {screenWidth / 2 - 200, screenHeight / 2 - 75, 400, 150};
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    SDL_RenderFillRect(renderer, &promptBox);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawRect(renderer, &promptBox);
+    
+    char promptText[64];
+    if (currentPromptAction == PROMPT_ACTION_SAVE) {
+        snprintf(promptText, sizeof(promptText), "Enter filename to SAVE:");
+    } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+        snprintf(promptText, sizeof(promptText), "Enter filename to LOAD:");
+    } else {
+        snprintf(promptText, sizeof(promptText), "Enter filename:");
+    }
+    
+    renderText(renderer, promptText, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 10);
+    renderText(renderer, inputFileNameBuffer, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 50);
+    renderText(renderer, "Press ENTER to confirm", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 90);
+    renderText(renderer, "Press ESC to cancel", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 110);
+}
+
+// Handle button clicks in the sidebar
+void handleSidebarButtons(int mouseX, int mouseY, GameState* state) {
+    // Define button positions
+    SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+    SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
+    SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
+    SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+    
+    if (currentScreenState == GAME_STATE_PLAYING) {
+        // Save button
+        if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
+            mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
+            printf("Save Game button clicked! Opening prompt...\n");
+            currentScreenState = GAME_STATE_PROMPT_FILENAME;
+            currentPromptAction = PROMPT_ACTION_SAVE;
+            SDL_StartTextInput();
+            inputFileNameBuffer[0] = '\0';
+            textInputActive = SDL_TRUE;
+        }
+        // Load button
+        else if (mouseX >= loadButton.x && mouseX <= loadButton.x + loadButton.w &&
+                 mouseY >= loadButton.y && mouseY <= loadButton.y + loadButton.h) {
+            printf("Load Game button clicked! Opening prompt...\n");
+            currentScreenState = GAME_STATE_PROMPT_FILENAME;
+            currentPromptAction = PROMPT_ACTION_LOAD;
+            SDL_StartTextInput();
+            inputFileNameBuffer[0] = '\0';
+            textInputActive = SDL_TRUE;
+        }
+        // Undo button
+        else if (mouseX >= undoButton.x && mouseX <= undoButton.x + undoButton.w &&
+                 mouseY >= undoButton.y && mouseY <= undoButton.y + undoButton.h) {
+            printf("Undo button clicked!\n");
+            undoGame(state);
+        }
+        // Redo button
+        else if (mouseX >= redoButton.x && mouseX <= redoButton.x + redoButton.w &&
+                 mouseY >= redoButton.y && mouseY <= redoButton.y + redoButton.h) {
+            printf("Redo button clicked!\n");
+            redoGame(state);
+        }
+    }
+}
+
+int main() {
     //==========Program Initialization==========//
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
@@ -378,154 +390,157 @@ int main(int argc, char* argv[]) {
     }
     printf("Program started successfully\n");
 
-    //==========Initialize Variables==========//
-    unsigned char board[8][8] = {0};
-    //Each square has 1 bite(unsigned char) or 8 bits:
-    //Bits 6 to 8 (3 bits) know the type of piece on the square: 1=pawn, 2=bishop, 3=knight, 4=rook, 5=queen, 6=king
-    //Bits 4 and 5 (2 bits) know the color of the piece on the square: 1 on bit 5 is white (0x10), 1 on bit 4 is black (0x20)
-    //Bit 3 knows if the square is clicked on
-    
-    bool mouseActions[2] = {false, false};
-    /*
-    *pos0: mouseButtonDown (click button pressed)
-    *pos1: mouseButtonUp (click button released)
-    */
-    bool pieceActions[2] = {false, false}; 
-    /*
-    *pos0: isSelected(a piece is selected)
-    *pos1: isHoldingPiece (a piece is holded in "hand")
-    */
+    if (!initFont("../res/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf", 24)) {
+        fprintf(stderr, "Font failed to load, check the path and font file.\n");
+        return -1;
+    }
 
-    bool blackTurn = false; // remember who's player is the turn
+    // Game mode selection menu
+    bool inMenu = true;
+    while (inMenu) {
+        SDL_Event menuEvent;
+        int mouseX, mouseY;
+        
+        while (SDL_PollEvent(&menuEvent)) {
+            if (menuEvent.type == SDL_QUIT) {
+                return 0; // Exit game if window is closed
+            } else if (menuEvent.type == SDL_MOUSEBUTTONDOWN) {
+                SDL_GetMouseState(&mouseX, &mouseY);
+                
+                // PvP button
+                if (mouseX >= 450 && mouseX <= 800 && mouseY >= 300 && mouseY <= 370) {
+                    gameMode = 1; // Player vs Player
+                    inMenu = false;
+                }
+                // PvE button
+                else if (mouseX >= 450 && mouseX <= 800 && mouseY >= 400 && mouseY <= 470) {
+                    gameMode = 2; // Player vs Engine
+                    inMenu = false;
+                }
+            }
+        }
+        
+        // Draw menu
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+        SDL_RenderClear(renderer);
+        
+        // Title
+        renderText(renderer, "Chess Game", (SDL_Color){255, 255, 255, 255}, screenWidth / 2 - 100, 150);
+        
+        // PvP button
+        SDL_Rect pvpButton = {450, 300, 350, 70};
+        SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255);
+        SDL_RenderFillRect(renderer, &pvpButton);
+        renderText(renderer, "Player vs Player", (SDL_Color){255, 255, 255, 255}, pvpButton.x + 80, pvpButton.y + 20);
+        
+        // PvE button
+        SDL_Rect pveButton = {450, 400, 350, 70};
+        SDL_SetRenderDrawColor(renderer, 100, 0, 0, 255);
+        SDL_RenderFillRect(renderer, &pveButton);
+        renderText(renderer, "Player vs Computer", (SDL_Color){255, 255, 255, 255}, pveButton.x + 70, pveButton.y + 20);
+        
+        SDL_RenderPresent(renderer);
+    }
+
+    //==========Initialize Game State==========//
+    GameState gameState;
+    initGameState(&gameState);
+    gameState.gameRunning = true;
+    
+    //==========Initialize Values==========//
     SDL_Event event;
     SDL_Texture* pieceTextures[2][7];
-    Vector2f selectedSquare = createVector(-1, -1);
-    Vector2f kingsPositions[2];
-    Vector2f lastDoublePushPawn = createVector(-1, -1);
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     int mouseX, mouseY;
-
-    // Engine variables
-    int currentScore = 0;
     
-    //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
-    placePieces(board, input);
-    initCastlingRights(board); // Initialize castling rights (sets MODIFIER flags)
-    findKings(board, kingsPositions); //Initialize kings positions
+    placePieces(gameState.board, input);
+    initCastlingRights(gameState.board); // Initialize castling rights (sets MODIFIER flags)
+    findKings(gameState.board, gameState.kingsPositions); //Initialize kings positions
     
+    // Record initial game state
+    recordGameState(&gameState);
     
     // Game state variables for check/checkmate/stalemate
     bool isInCheck = false;
     bool isGameOver = false;
     bool isStalemate = false;
     
-    while(gameRunning) {
+    // Initialize time tracking
+    lastTick = SDL_GetPerformanceCounter();
+    currentTick = lastTick;
+    
+    while(gameState.gameRunning) {
         //==========Find time variables==========//
         lastTick = currentTick;
         currentTick = SDL_GetPerformanceCounter();
         deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
         
+        // Update timers
+        if (gameState.blackTurn) {
+            blackTimeMs -= deltaTime;
+            if (blackTimeMs < 0) blackTimeMs = 0;
+        } else {
+            whiteTimeMs -= deltaTime;
+            if (whiteTimeMs < 0) whiteTimeMs = 0;
+        }
+        
         //==========Events and movements==========//
-        getEvents(event, &gameRunning, mouseActions);
+        getEvents(event, &gameState, &moveHistoryScrollOffset);
         SDL_GetMouseState(&mouseX, &mouseY);
         
-        // Handle menu state
-        if (showMenu) {
-            // Render the chess board in the background
-            clear(&renderer);
-            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, board);
-            
-            for(int row=0;row<8;row++) {
-                for(int col=0;col<8;col++) {
-                    renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
-                }
-            }
-            
-            // Draw the menu overlay and check for button clicks
-            int selectedMode = 0;
-            if (drawMenu(renderer, screenWidth, screenHeight, &selectedMode)) {
-                showMenu = false; // Exit menu if a button was clicked
-                gameMode = selectedMode;
-                
-                // If PvE mode is selected, make the computer play black
-                if (gameMode == 2) {
-                    computerPlaysBlack = true;
-                    // If it's already black's turn, make the computer move immediately
-                    if (blackTurn) {
-                        makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
-                    }
-                }
-            }
-            
-            display(&renderer);
-            
-            // Skip the rest of the game logic while in menu
-            continue;
+        // Handle mouse click
+        if (gameState.mouseActions[0]) {
+            handleSidebarButtons(mouseX, mouseY, &gameState);
         }
         
-        if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
-            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare, &lastDoublePushPawn, kingsPositions);
-            mouseActions[0] = false;
-            mouseActions[1] = false;
+        if (mouseInsideBoard(mouseX, mouseY) && currentScreenState == GAME_STATE_PLAYING) {
+            handleMouseInput(&gameState, mouseX, mouseY);
         }
         
-        // Make computer move if engine is enabled
-        if (engineEnabled) {
-            makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
-        }
-        
-        // Handle computer moves in PvE mode with a 500ms delay
-        if (gameMode == 2 && moveTimestamp > 0 && blackTurn) {
-            Uint32 currentTime = SDL_GetTicks();
-            if (currentTime - moveTimestamp >= 500) {  // 500 ms = 0.5 second
-                printf("Computer making move after 0.5 second delay\n");
-                makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
-                moveTimestamp = 0;  // Reset the timestamp
-            }
-        }
-        
-        // Update the current score
-        currentScore = getRelativeScore(board);
+        gameState.mouseActions[0] = false;
+        gameState.mouseActions[1] = false;
         
         // Check for check, checkmate, or stalemate
-        unsigned char currentColor = blackTurn ? 1 : 0;
-        isInCheck = isCheck(board, kingsPositions[currentColor]);
+        unsigned char currentColor = gameState.blackTurn ? 1 : 0;
+        isInCheck = isCheck(gameState.board, gameState.kingsPositions[currentColor]);
         
         MoveList moveList;
-        generateMoves(board, currentColor, &moveList, &lastDoublePushPawn);
+        generateMoves(gameState.board, currentColor, &moveList, &gameState.lastDoublePushPawn);
         
         isGameOver = moveList.count == 0;
         isStalemate = isGameOver && !isInCheck;
         
         //==========Render Visuals==========//
         clear(&renderer);
-        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, board);
         
-        // Draw evaluation bar
-        if (showEvaluationBar) {
-            drawEvaluationBar(renderer, currentScore);
-        }
+        // Draw the chess board
+        drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
         
+        // Draw pieces
         for(int row=0;row<8;row++) {
             for(int col=0;col<8;col++) {
-                renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
+                renderPiece(pieceTextureCoordinates, 0, squareSize, row, col, getPieceTexture(pieceTextures, gameState.board[row][col]), &renderer);
             }
-        } 
+        }
+        
+        // Draw sidebar UI
+        drawSidebar(renderer, &gameState);
         
         // Draw game status
-        drawGameStatus(renderer, isInCheck, isGameOver, isStalemate, blackTurn);
+        drawGameStatus(renderer, isInCheck, isGameOver, isStalemate, gameState.blackTurn);
+        
+        // Draw filename prompt if active
+        if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+            drawFilenamePrompt(renderer);
+        }
         
         display(&renderer);
-        
-        // Show analysis if requested
-        if (showAnalysis) {
-            displayPositionAnalysis(board, blackTurn, &lastDoublePushPawn, kingsPositions);
-            showAnalysis = false; // Only show once per request
-        }
     }
 
+    // Cleanup
+    cleanUp(window);
     printf("Program ended\n");
     return 0;
 }

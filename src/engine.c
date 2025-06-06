@@ -339,12 +339,12 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             // Generate a move for each promotion piece type
                             unsigned char promotionPieces[] = {QUEEN, ROOK, BISHOP, KNIGHT};
                             for (int p = 0; p < 4; p++) {
-                                Move move = {{i, j}, {newRow, j}, NONE, true, promotionPieces[p] | (color << 4), hasModifier, 0};
+                                EngineMove move = {{i, j}, {newRow, j}, NONE, true, promotionPieces[p] | (color << 4), hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                         } else {
                             // Regular move
-                            Move move = {{i, j}, {newRow, j}, NONE, false, 0, hasModifier, 0};
+                            EngineMove move = {{i, j}, {newRow, j}, NONE, false, 0, hasModifier, 0};
                             list->moves[list->count++] = move;
                         }
                     }
@@ -354,7 +354,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                         int doubleRow = i + 2 * direction;
                         if (board[i + direction][j] == NONE && board[doubleRow][j] == NONE) {
                             bool hasModifier = (board[i][j] & MODIFIER) != 0;
-                            Move move = {{i, j}, {doubleRow, j}, NONE, false, 0, hasModifier, 0};
+                            EngineMove move = {{i, j}, {doubleRow, j}, NONE, false, 0, hasModifier, 0};
                             list->moves[list->count++] = move;
                         }
                     }
@@ -378,12 +378,12 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                                         // Generate a move for each promotion piece type
                                         unsigned char promotionPieces[] = {QUEEN, ROOK, BISHOP, KNIGHT};
                                         for (int p = 0; p < 4; p++) {
-                                            Move move = {{i, j}, {newRow, newCol}, targetPiece, true, promotionPieces[p] | (color << 4), hasModifier, 0};
+                                            EngineMove move = {{i, j}, {newRow, newCol}, targetPiece, true, promotionPieces[p] | (color << 4), hasModifier, 0};
                                             list->moves[list->count++] = move;
                                         }
                                     } else {
                                         // Regular capture
-                                        Move move = {{i, j}, {newRow, newCol}, targetPiece, false, 0, hasModifier, 0};
+                                        EngineMove move = {{i, j}, {newRow, newCol}, targetPiece, false, 0, hasModifier, 0};
                                         list->moves[list->count++] = move;
                                     }
                                 }
@@ -391,7 +391,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                                 // En passant capture
                                 else if (targetType == NONE && lastDoublePawn->x == newCol && lastDoublePawn->y == i) {
                                     bool hasModifier = (board[i][j] & MODIFIER) != 0;
-                                    Move move = {{i, j}, {newRow, newCol}, board[i][newCol], false, 0, hasModifier, 0};
+                                    EngineMove move = {{i, j}, {newRow, newCol}, board[i][newCol], false, 0, hasModifier, 0};
                                     list->moves[list->count++] = move;
                                 }
                             }
@@ -417,7 +417,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {nx, ny}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {nx, ny}, targetPiece, false, 0, hasModifier, 0};
                         list->moves[list->count++] = move;
                     }
                 }
@@ -441,7 +441,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                             
@@ -469,7 +469,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                             
@@ -498,7 +498,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                             
@@ -522,7 +522,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {x, y}, targetPiece, false, 0, hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                             
@@ -551,7 +551,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
                             if (targetType != NONE && targetColor != color) {
                                 bool hasModifier = (board[i][j] & MODIFIER) != 0;
                                 
-                                Move move = {{i, j}, {nx, ny}, targetPiece, false, 0, hasModifier, 0};
+                                EngineMove move = {{i, j}, {nx, ny}, targetPiece, false, 0, hasModifier, 0};
                                 list->moves[list->count++] = move;
                             }
                         }
@@ -564,7 +564,7 @@ void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, Mo
 }
 
 // Check if a move is legal (doesn't leave king in check)
-bool isLegalMove(unsigned char board[8][8], Move move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
+bool isLegalMove(unsigned char board[8][8], EngineMove move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
     // Make a temporary copy of the board and kings
     unsigned char tempBoard[8][8];
     memcpy(tempBoard, board, sizeof(tempBoard));
@@ -595,7 +595,7 @@ void generateLegalMoves(unsigned char board[8][8], unsigned char color, MoveList
 
 // Make a move on the board and update lastDoublePawn if needed
 // isRealMove should be true for actual moves on the board, false for AI calculations
-void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[], int isRealMove) {
+void engineMakeMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kings[], int isRealMove) {
     unsigned char movingPiece = board[(int)move.from.x][(int)move.from.y];
     unsigned char pieceType = movingPiece & TYPE_MASK;
     unsigned char color = (movingPiece & COLOR_MASK) >> 4;
@@ -645,14 +645,14 @@ void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePa
         if (abs(move.to.y - move.from.y) == 2) {
             // Kingside castling (short castle)
             if (move.to.y > move.from.y) {
-                // Move the rook from the kingside to its new position
+                // EngineMove the rook from the kingside to its new position
                 // Don't set MODIFIER flag on the rook
                 board[move.to.x][move.to.y - 1] = (ROOK | (color << 4));
                 board[move.to.x][7] = 0; // Remove the rook from its original position
             }
             // Queenside castling (long castle)
             else {
-                // Move the rook from the queenside to its new position
+                // EngineMove the rook from the queenside to its new position
                 // Don't set MODIFIER flag on the rook
                 board[move.to.x][move.to.y + 1] = (ROOK | (color << 4));
                 board[move.to.x][0] = 0; // Remove the rook from its original position
@@ -1037,7 +1037,7 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
                             // Generate a move for each promotion piece type
                             unsigned char promotionPieces[] = {QUEEN, ROOK, BISHOP, KNIGHT};
                             for (int p = 0; p < 4; p++) {
-                                Move move = {{i, j}, {x, y}, board[x][y], true, promotionPieces[p] | (color << 4), hasModifier, 0};
+                                EngineMove move = {{i, j}, {x, y}, board[x][y], true, promotionPieces[p] | (color << 4), hasModifier, 0};
                                 
                                 // Check if the move is legal (doesn't leave king in check)
                                 Vector2f kings[2];
@@ -1048,7 +1048,7 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
                             }
                         } else {
                             // Regular move
-                            Move move = {{i, j}, {x, y}, board[x][y], false, 0, hasModifier, 0};
+                            EngineMove move = {{i, j}, {x, y}, board[x][y], false, 0, hasModifier, 0};
                         
                         // Check if the move is legal (doesn't leave king in check)
                             Vector2f kings[2];
@@ -1065,7 +1065,7 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
 }
 
 // Function to make a move on the board
-void makeEngineMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+void makeEngineMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     // Delegate to the main move function
     engineMakeMove(board, move, lastDoublePawn, kingsPositions, 1);
     
@@ -1169,17 +1169,17 @@ int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool maxi
 }
 
 // Top-level function to get the best move using the full tree search
-Move findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
+EngineMove findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]) {
     MoveList moveList;
     generateLegalMoves(board, color, &moveList, lastDoublePawn, kings);
 
     if (moveList.count == 0) {
-        Move nullMove = {0};
+        EngineMove nullMove = {0};
         return nullMove;
     }
 
     int bestScore = -100000;
-    Move bestMove = moveList.moves[0]; // Default to first move
+    EngineMove bestMove = moveList.moves[0]; // Default to first move
 
     for (int i = 0; i < moveList.count; i++) {
         // Make a temporary copy of the board and kings
@@ -1246,7 +1246,7 @@ void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* l
     }
     
     // Find best move
-    Move bestMove = findBestMoveWithMinimax(board, color, lastDoublePawn, kingsPositions);
+    EngineMove bestMove = findBestMoveWithMinimax(board, color, lastDoublePawn, kingsPositions);
     
     if (bestMove.from.x != -1) {
         printf("Best move: %c%d to %c%d\n", 
@@ -1274,7 +1274,7 @@ void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* l
 
 // Function to evaluate if a piece would be captured after moving to a square
 // Returns a score based on the net material change from the exchange
-int evaluateMoveSafety(unsigned char board[8][8], Move move, unsigned char color) {
+int evaluateMoveSafety(unsigned char board[8][8], EngineMove move, unsigned char color) {
     // Get the value of the piece being moved
     int movingPieceValue = 0;
     unsigned char pieceType = board[move.from.x][move.from.y] & TYPE_MASK;
@@ -1330,6 +1330,6 @@ void evaluateMovesSafety(unsigned char board[8][8], unsigned char color, MoveLis
 }
 
 // Legacy wrapper for findBestMove to maintain compatibility
-Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+EngineMove findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     return findBestMoveWithMinimax(board, color, lastDoublePawn, kingsPositions);
 }

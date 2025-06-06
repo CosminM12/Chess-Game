@@ -14,21 +14,30 @@
 #define KING_VALUE 20000
 
 // Search parameters
-#define MAX_DEPTH 3
+#define MAX_DEPTH 4
 #define MAX_PV_LENGTH 64
 
+// Define the maximum number of moves in a position
+#ifndef MAX_MOVES
+#define MAX_MOVES 256
+#endif
+
+// Define the structure for a move
 typedef struct {
     Vector2f from;
     Vector2f to;
     unsigned char capturedPiece;
+    bool isEnPassant;
+    int safetyScore;
+    bool hasMoved;
+    int score;
     bool isPromotion;
     unsigned char promotionPiece;
-    bool originalModifier;  // Was the MODIFIER flag set on the original piece?
-    int safetyScore;       // Score indicating move safety (negative = risky)
-} Move;
+} EngineMove;
 
+// Define the structure for a list of moves
 typedef struct {
-    Move moves[1024];
+    EngineMove moves[MAX_MOVES];
     int count;
 } MoveList;
 
@@ -36,17 +45,17 @@ typedef struct {
 void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* moveList, Vector2f* lastDoublePawn);
 void generateLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn, Vector2f kings[]);
 void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn);
-bool isMoveLegal(unsigned char board[8][8], Move move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
-void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[], int isRealMove);
-void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]);
+bool isMoveLegal(unsigned char board[8][8], EngineMove move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+void engineMakeMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kings[], int isRealMove);
+void unmakeMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kings[]);
 bool isKingInCheck(unsigned char board[8][8], Vector2f kingPosition, unsigned char color);
 bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned char attackerColor);
 
 // Search Functions
 int minimax(unsigned char board[8][8], int depth, int alpha, int beta, bool isMaximizingPlayer,
             unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
-Move findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
-Move findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+EngineMove findBestMoveWithMinimax(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
+EngineMove findBestMove(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 
 // Evaluation System
 int evaluatePosition(unsigned char board[8][8], unsigned char color);
@@ -56,7 +65,7 @@ int evaluateMobility(unsigned char board[8][8], unsigned char color);
 int evaluateKingSafety(unsigned char board[8][8], unsigned char color, Vector2f kings[]);
 int evaluatePawnStructure(unsigned char board[8][8], unsigned char color);
 int evaluatePieceSquareTables(unsigned char board[8][8], unsigned char color, int phase);
-int evaluateMoveSafety(unsigned char board[8][8], Move move, unsigned char color);
+int evaluateMoveSafety(unsigned char board[8][8], EngineMove move, unsigned char color);
 void evaluateMovesSafety(unsigned char board[8][8], unsigned char color, MoveList* moveList);
 
 // Move Generation Helpers
@@ -71,7 +80,7 @@ void getScoreBar(int score, float* whitePercentage, float* blackPercentage);
 void analyzePosition(unsigned char board[8][8], unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
 
 // Move function for the AI
-void makeEngineMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
+void makeEngineMove(unsigned char board[8][8], EngineMove move, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);
 
 // Function to get the relative score based on the current player's perspective
 int getRelativeScore(unsigned char board[8][8]);

@@ -6,9 +6,11 @@
 
 #include "RenderWindow.h"
 #include "Piece.h"
+#include "app_globals.h"
 
 // Store the renderer as a static variable for access from other modules
 static SDL_Renderer* globalRenderer = NULL;
+static TTF_Font* globalFont = NULL;
 
 bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** renderer, int screenWidth, int screenHeight) {
     //Create new window
@@ -39,8 +41,7 @@ SDL_Renderer* getRenderer() {
     return globalRenderer;
 }
 
-void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
-    int boardOffset = (screenWidth - squareSize*8) / 2;
+void drawBoard(SDL_Renderer* renderer, int squareSize, int boardOffset, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
 
@@ -137,10 +138,9 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
     SDL_RenderDrawRect(renderer, &menuRect);
     
     // Draw menu title
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18);
-    if (font) {
+    if (globalFont) {
         SDL_Color textColor = {0, 0, 0, 255}; // Black
-        SDL_Surface* textSurface = TTF_RenderText_Solid(font, "Promote pawn to:", textColor);
+        SDL_Surface* textSurface = TTF_RenderText_Solid(globalFont, "Promote pawn to:", textColor);
         if (textSurface) {
             SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
             if (textTexture) {
@@ -155,7 +155,6 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
             }
             SDL_FreeSurface(textSurface);
         }
-        TTF_CloseFont(font);
     }
     
     // Draw promotion options
@@ -229,17 +228,123 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
     return selectedPiece;
 }
 
+// Render captured pieces in the sidebar
+void renderCapturedPieces(SDL_Renderer* renderer, GameState* state) {
+    // Constants for rendering captured pieces
+    const int capturedPieceSize = 30; // Smaller size for captured pieces
+    const int padding = 5;
+    const int piecesPerRow = 5; // Number of pieces to display per row in sidebar
+    
+    // Load piece textures
+    SDL_Texture* pieceTextures[2][7];
+    loadPieceTextures(pieceTextures, &renderer);
+    
+    SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
+
+    // Render White's Captured Pieces (Black's pieces)
+    int startX_whiteCaptured = boardWidth + padding;
+    int startY_whiteCaptured = 150; // Below the timer and move history title
+
+    for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
+        unsigned char pieceType = state->whiteCapturedPieces[i];
+        // Captured pieces by White are Black's pieces (COLOR_MASK represents black if set)
+        unsigned char pieceByte = pieceType | COLOR_MASK; // Combine type with black color mask
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
+        }
+    }
+
+    // Render Black's Captured Pieces (White's pieces)
+    int startX_blackCaptured = boardWidth + padding;
+    int startY_blackCaptured = 400; // Further down for black's captured pieces
+
+    for (int i = 0; i < state->numBlackCapturedPieces; i++) {
+        unsigned char pieceType = state->blackCapturedPieces[i];
+        // Captured pieces by Black are White's pieces (no COLOR_MASK for white)
+        unsigned char pieceByte = pieceType; // White pieces have no color mask
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
+        }
+    }
+}
 
 void display(SDL_Renderer** renderer) {
     SDL_RenderPresent(*renderer);
 }
-
 
 void clear(SDL_Renderer** renderer) {
     SDL_RenderClear(*renderer);
 }
 
 void cleanUp(SDL_Window* window) {
+    destroyFont();
     TTF_Quit();
     SDL_DestroyWindow(window);
+}
+
+// Font handling functions
+bool initFont(const char *fontPath, int fontSize) {
+    if (TTF_Init() == -1) {
+        printf("TTF_Init failed: %s\n", TTF_GetError());
+        return false;
+    }
+
+    // Try multiple font paths in case the first one doesn't exist
+    const char* fontPaths[] = {
+        fontPath,
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"
+    };
+    
+    for (int i = 0; i < sizeof(fontPaths) / sizeof(fontPaths[0]); i++) {
+        globalFont = TTF_OpenFont(fontPaths[i], fontSize);
+        if (globalFont) {
+            printf("Font loaded successfully: %s\n", fontPaths[i]);
+            return true;
+        }
+    }
+    
+    printf("Failed to load any font\n");
+    return false;
+}
+
+void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x, int y) {
+    if (!globalFont) {
+        printf("Font not initialized!\n");
+        return;
+    }
+
+    SDL_Surface *surface = TTF_RenderText_Blended(globalFont, text, color);
+    if (!surface) {
+        printf("Text render error: %s\n", TTF_GetError());
+        return;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_Rect dstRect = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, NULL, &dstRect);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+}
+
+void destroyFont() {
+    if (globalFont) {
+        TTF_CloseFont(globalFont);
+        globalFont = NULL;
+    }
 }
