@@ -1002,6 +1002,8 @@ int getRelativeScore(unsigned char board[8][8]) {
 void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* moveList, Vector2f* lastDoublePawn) {
     moveList->count = 0;
     
+    printf("DEBUG: Generating moves for color %d\n", color);
+    
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             unsigned char piece = board[i][j];
@@ -1011,6 +1013,8 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
             unsigned char pieceColor = (piece & COLOR_MASK) >> 4;
             
             if (pieceColor != color) continue;
+            
+            printf("DEBUG: Found piece type %d at position (%d,%d) with color %d\n", pieceType, i, j, pieceColor);
             
             // Generate possible moves for this piece
             unsigned char tempBoard[8][8];
@@ -1024,6 +1028,8 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
             
             // Generate possible moves for this piece
             generatePossibleMoves(tempBoard, i, j, lastDoublePawn);
+            
+            int pieceMovesCount = 0;
             
             // Add all possible moves to the move list
             for (int x = 0; x < 8; x++) {
@@ -1044,24 +1050,30 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
                                 findKings(board, kings);
                                 if (isLegalMove(board, move, color, lastDoublePawn, kings)) {
                                     moveList->moves[moveList->count++] = move;
+                                    pieceMovesCount++;
                                 }
                             }
                         } else {
                             // Regular move
                             EngineMove move = {{i, j}, {x, y}, board[x][y], false, 0, hasModifier, 0};
                         
-                        // Check if the move is legal (doesn't leave king in check)
+                            // Check if the move is legal (doesn't leave king in check)
                             Vector2f kings[2];
-                        findKings(board, kings);
-                        if (isLegalMove(board, move, color, lastDoublePawn, kings)) {
-                            moveList->moves[moveList->count++] = move;
+                            findKings(board, kings);
+                            if (isLegalMove(board, move, color, lastDoublePawn, kings)) {
+                                moveList->moves[moveList->count++] = move;
+                                pieceMovesCount++;
                             }
                         }
                     }
                 }
             }
+            
+            printf("DEBUG: Piece at (%d,%d) has %d legal moves\n", i, j, pieceMovesCount);
         }
     }
+    
+    printf("DEBUG: Total legal moves for color %d: %d\n", color, moveList->count);
 }
 
 // Function to make a move on the board
