@@ -10,7 +10,7 @@
 #include "GameState.h"
 #include "Events.h"
 #include "util.h"
-
+#include "app_globals.h"
 
 Move moveHistory[MAX_MOVES];
 int moveCount = 0;
@@ -36,6 +36,11 @@ const char* pieceToChar(unsigned char piece) {
         default:   return "?";
     }
 }
+
+GameScreenState currentScreenState = GAME_STATE_PLAYING;
+GamePromptActionType currentPromptAction = PROMPT_ACTION_NONE;
+char inputFileNameBuffer[256] = ""; // Renamed the buffer
+SDL_bool textInputActive = SDL_FALSE;
 
 
 /*----------Variable declaration------------*/
@@ -225,16 +230,23 @@ int main() {
             // Check if Save Game button was clicked
             if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
                 mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
+
                 printf("Save Game button clicked!\n"); // Debug print, keep for now
-                // Call your save function
-                saveGameToFile(&gameState, "saved_game.txt");
+                currentScreenState = GAME_STATE_PROMPT_FILENAME;
+                SDL_StartTextInput(); // Start capturing text input
+                inputFileNameBuffer[0] = '\0'; // Clear buffer
+                textInputActive = SDL_TRUE;
             }
                 // Check if Load Game button was clicked
             else if (mouseX >= loadButton.x && mouseX <= loadButton.x + loadButton.w &&
                      mouseY >= loadButton.y && mouseY <= loadButton.y + loadButton.h) {
-                printf("Load Game button clicked!\n"); // Debug print, keep for now
-                // Call your load function
-                loadGameFromFile(&gameState, "saved_game.txt");
+
+                printf("Load Game button clicked! Opening prompt...\n");
+                currentScreenState = GAME_STATE_PROMPT_FILENAME;
+                currentPromptAction = PROMPT_ACTION_LOAD;
+                SDL_StartTextInput();
+                inputFileNameBuffer[0] = '\0'; // Clear buffer
+                textInputActive = SDL_TRUE;
             }
         }
 
@@ -367,8 +379,118 @@ int main() {
 //            renderText(renderer, buffer, (SDL_Color){0, 0, 0, 255}, boardWidth + sidebar1_width + 10, y);
 //        }
 
+        // Inside main loop rendering section
+//        clear(&renderer);
+        // ... existing drawBoard, sidebar rendering, etc.
+
+        if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+            // Dim the background
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150); // Semi-transparent black
+            SDL_Rect dimmer = {0, 0, screenWidth, screenHeight};
+            SDL_RenderFillRect(renderer, &dimmer);
+
+            // Draw a box for the prompt
+            SDL_Rect promptBox = {screenWidth / 2 - 200, screenHeight / 2 - 75, 400, 150}; // Larger box
+            SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Dark grey background for prompt
+            SDL_RenderFillRect(renderer, &promptBox);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White border
+            SDL_RenderDrawRect(renderer, &promptBox);
+
+            char promptText[64];
+            if (currentPromptAction == PROMPT_ACTION_SAVE) {
+                snprintf(promptText, sizeof(promptText), "Enter filename to SAVE:");
+            } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+                snprintf(promptText, sizeof(promptText), "Enter filename to LOAD:");
+            } else {
+                snprintf(promptText, sizeof(promptText), "Enter filename:");
+            }
+            renderText(renderer, promptText, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 10);
+
+            renderText(renderer, inputFileNameBuffer, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 50);
+
+            renderText(renderer, "Press ENTER to confirm", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 90);
+            renderText(renderer, "Press ESC to cancel", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 110);
+
+        } else {
+            // --- EXISTING GAME RENDERING LOGIC ---
+            drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible,
+                      gameState.board);
+
+            SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderFillRect(renderer, &sidebar_background);
+
+            SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, timer_height};
+            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+            SDL_RenderFillRect(renderer, &timerBox);
+
+            formatTime(whiteTimerStr, whiteTimeMs);
+            formatTime(blackTimerStr, blackTimeMs);
+
+            renderText(renderer, "White:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10, 10);
+            renderText(renderer, whiteTimerStr, (SDL_Color) {255, 255, 255, 255}, boardWidth + 150, 10);
+
+            renderText(renderer, "Black:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10, 40);
+            renderText(renderer, blackTimerStr, (SDL_Color) {255, 255, 255, 255}, boardWidth + 150, 40);
+
+            SDL_Rect capturedBlackBox = {boardWidth, timer_height, sidebar1_width, captured_height * 2};
+            SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+            SDL_RenderFillRect(renderer, &capturedBlackBox);
+
+            SDL_Rect capturedWhiteBox = {boardWidth + sidebar1_width, 250, sidebar2_width, 150};
+            SDL_SetRenderDrawColor(renderer, 200, 160, 255, 255);
+            SDL_RenderFillRect(renderer, &capturedWhiteBox);
+
+            SDL_Rect buttonBox = {boardWidth, screenHeight - 150, sidebar1_width, 150};
+            SDL_SetRenderDrawColor(renderer, 255, 100, 180, 255);
+            SDL_RenderFillRect(renderer, &buttonBox);
+
+            SDL_Rect moveHistoryBox = {boardWidth + sidebar1_width, 0, sidebar2_width, screenHeight};
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderFillRect(renderer, &moveHistoryBox);
 
 
+            renderText(renderer, "Captured by white:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10,
+                       timer_height + 10);
+            renderText(renderer, "Captured by black:", (SDL_Color) {255, 255, 255, 255}, boardWidth + 10,
+                       timer_height + captured_height + 10);
+
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    renderPiece(pieceTextureCoordinates, 0, squareSize, row, col,
+                                getPieceTexture(pieceTextures, gameState.board[row][col]), &renderer);
+                }
+            }
+
+            renderCapturedPieces(renderer, pieceTextures, &gameState);
+
+            renderText(renderer, "MOVE HISTORY:", (SDL_Color) {255, 255, 255, 255}, boardWidth + sidebar1_width + 10,
+                       10);
+
+            const int moveHeight = 25;
+            int visibleStart = moveHistoryScrollOffset / moveHeight;
+            int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
+
+            for (int i = visibleStart; i < visibleEnd && i < moveCount; ++i) {
+                char buffer[64];
+                sprintf(buffer, "%d. %s", (i + 1), moveHistory[i].notation);
+
+                int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
+
+                if (y >= 40 && y < screenHeight - 10) {
+                    renderText(renderer, buffer, (SDL_Color) {255, 255, 255, 255},
+                               boardWidth + sidebar1_width + 15, y);
+                }
+            }
+
+            SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
+            SDL_RenderFillRect(renderer, &saveButton);
+            renderText(renderer, "Save Game", (SDL_Color) {255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 10);
+
+            SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
+            SDL_RenderFillRect(renderer, &loadButton);
+            renderText(renderer, "Load Game", (SDL_Color) {255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 10);
+        }
 
         display(&renderer);
 

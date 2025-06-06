@@ -7,6 +7,7 @@
 #include "Events.h"
 #include "Piece.h"
 #include "GameState.h"
+#include "app_globals.h"
 
 const int scrollStep = 20;
 
@@ -75,6 +76,45 @@ void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
                 int maxScroll = (moveCount * 25) - screenHeight;
                 if (maxScroll < 0) maxScroll = 0;
                 if (*scrollOffset > maxScroll) *scrollOffset = maxScroll;
+                break;
+
+            case SDL_TEXTINPUT:
+                if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                    // Append text input to the buffer
+                    if (strlen(inputFileNameBuffer) + strlen(event.text.text) < sizeof(inputFileNameBuffer)) {
+                        strcat(inputFileNameBuffer, event.text.text);
+                    }
+                }
+                break;
+
+            case SDL_KEYDOWN:
+                if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                    if (event.key.keysym.sym == SDLK_BACKSPACE && strlen(inputFileNameBuffer) > 0) {
+                        inputFileNameBuffer[strlen(inputFileNameBuffer) - 1] = '\0'; // Remove last character
+                    } else if (event.key.keysym.sym == SDLK_RETURN) {
+                        // Enter key pressed, user finished typing filename
+                        if (strlen(inputFileNameBuffer) > 0) {
+                            if (currentPromptAction == PROMPT_ACTION_SAVE) {
+                                saveGameToFile(state, inputFileNameBuffer);
+                            } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+                                loadGameFromFile(state, inputFileNameBuffer);
+                            }
+                        } else {
+                            printf("Filename cannot be empty. Please enter a name.\n");
+                        }
+                        SDL_StopTextInput();
+                        textInputActive = SDL_FALSE;
+                        currentScreenState = GAME_STATE_PLAYING;
+                        currentPromptAction = PROMPT_ACTION_NONE; // Reset action
+                    } else if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        // Escape key pressed, cancel input
+                        SDL_StopTextInput();
+                        textInputActive = SDL_FALSE;
+                        currentScreenState = GAME_STATE_PLAYING;
+                        currentPromptAction = PROMPT_ACTION_NONE; // Reset action
+                        printf("Operation cancelled.\n");
+                    }
+                }
                 break;
         }
     }
