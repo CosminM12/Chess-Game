@@ -4,21 +4,22 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h> // <--- IMPORTANT: ADD THIS INCLUDE for strlen and strcat
+#include <stdio.h> // For snprintf (ensure this is included if not already)
 
 #include "Events.h"
 #include "Piece.h"
 #include "GameState.h"
-#include "util.h"        // <--- IMPORTANT: ADD THIS INCLUDE for constants like screenHeight, boardWidth, squareSize
-#include "app_globals.h" // Include your global header here
+#include "util.h"
+#include "app_globals.h"
 
 const int scrollStep = 20;
 
-// The moveHistory and moveCount globals are defined in main.c,
-// but declared as extern in Events.h and app_globals.h (if applicable)
-// make sure Events.h also declares them as extern if they are used by other files
+// The moveHistory and moveCount are now members of the GameState struct.
+// No need for extern declarations here.
 
-void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece) {
-    if (moveCount >= MAX_MOVES) return;
+// UPDATED DEFINITION: add GameState* state parameter
+void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece) {
+    if (state->moveCount >= MAX_MOVES) return; // Use state->moveCount
 
     const char *pieceChar;
     switch (piece & TYPE_MASK) { // Using TYPE_MASK from Piece.h
@@ -48,10 +49,10 @@ void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsign
     char from[3] = {'a' + startCol, '8' - startRow, '\0'};
     char to[3] = {'a' + endCol, '8' - endRow, '\0'};
 
-    snprintf(moveHistory[moveCount].notation, sizeof(moveHistory[moveCount].notation),
+    snprintf(state->moveHistory[state->moveCount].notation, sizeof(state->moveHistory[state->moveCount].notation), // Use state->moveHistory
              "%s%s%s", pieceChar, from, to);
 
-    moveCount++;
+    state->moveCount++; // Use state->moveCount
 }
 
 // In src/Events.c
@@ -86,7 +87,7 @@ void getEvents(SDL_Event event, GameState *state, int *scrollOffset) {
                 if (*scrollOffset < 0) *scrollOffset = 0;
 
                 // screenHeight should be visible via util.h
-                int maxScroll = (moveCount * 25) - screenHeight;
+                int maxScroll = (state->moveCount * 25) - screenHeight; // Use state->moveCount
                 if (maxScroll < 0) maxScroll = 0;
                 if (*scrollOffset > maxScroll) *scrollOffset = maxScroll;
                 break;
@@ -174,7 +175,7 @@ void makeMove(GameState *state, int destX, int destY) {
 
     state->board[destY][destX] = (capturingPiece & 0x1F);
 
-    addMoveToHistory(oldY, oldX, destY, destX, capturingPiece);
+    addMoveToHistory(state, oldY, oldX, destY, destX, capturingPiece); // UPDATED CALL: pass state
 
     state->board[oldY][oldX] = NONE;
 

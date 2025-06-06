@@ -18,11 +18,10 @@ void deselectPiece(GameState* state);
 
 void handleMouseInput(GameState* state, int mouseX, int mouseY);
 
-// Prototype for addMoveToHistory (matches current implementation in Events.c)
-void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece);
+// UPDATED PROTOYPE: add GameState* state parameter
+void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 
-// Global move history and count (defined in main.c)
-extern Move moveHistory[MAX_MOVES];
-extern int moveCount;
+// REMOVED: extern Move moveHistory[MAX_MOVES];
+// REMOVED: extern int moveCount;
 
 #endif

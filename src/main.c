@@ -20,14 +20,14 @@ GamePromptActionType currentPromptAction = PROMPT_ACTION_NONE;
 char inputFileNameBuffer[256] = "";
 SDL_bool textInputActive = SDL_FALSE;
 
+// GameState history management variables - DEFINED HERE (declared in GameState.h)
 GameState historyStates[MAX_HISTORY_STATES];
 int historyCount = 0;
 int currentHistoryIdx = -1;
-// --- END GLOBAL VARIABLE DEFINITIONS ---r
+// --- END GLOBAL VARIABLE DEFINITIONS ---
 
 
-Move moveHistory[MAX_MOVES];
-int moveCount = 0;
+// REMOVED: Move moveHistory[MAX_MOVES]; and int moveCount = 0; as they are now part of GameState struct.
 int moveHistoryScrollOffset = 0;
 
 
@@ -149,6 +149,9 @@ void recordGameState(GameState* state) {
     historyStates[currentHistoryIdx] = *state; // Copy the entire current game state
     historyCount = currentHistoryIdx + 1; // Update total count of states
     printf("Recorded state %d. Total states: %d\n", currentHistoryIdx, historyCount);
+
+    // Reset scroll offset to show current moves after recording a new state
+    moveHistoryScrollOffset = 0;
 }
 
 void undoGame(GameState* state) {
@@ -156,6 +159,8 @@ void undoGame(GameState* state) {
         currentHistoryIdx--;
         *state = historyStates[currentHistoryIdx]; // Revert to previous state
         printf("Undone to state %d.\n", currentHistoryIdx);
+        // Reset scroll offset to show the newly reverted state's moves
+        moveHistoryScrollOffset = 0;
     } else {
         printf("Cannot undo further.\n");
     }
@@ -166,6 +171,8 @@ void redoGame(GameState* state) {
         currentHistoryIdx++;
         *state = historyStates[currentHistoryIdx]; // Re-apply next state
         printf("Redone to state %d.\n", currentHistoryIdx);
+        // Reset scroll offset to show the newly redone state's moves
+        moveHistoryScrollOffset = 0;
     } else {
         printf("Cannot redo further.\n");
     }
@@ -380,9 +387,9 @@ int main() {
             int visibleStart = moveHistoryScrollOffset / moveHeight;
             int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
 
-            for (int i = visibleStart; i < visibleEnd && i < moveCount; ++i) {
+            for (int i = visibleStart; i < visibleEnd && i < gameState.moveCount; ++i) { // Use gameState.moveCount
                 char buffer[64];
-                sprintf(buffer, "%d. %s", (i + 1), moveHistory[i].notation);
+                sprintf(buffer, "%d. %s", (i + 1), gameState.moveHistory[i].notation); // Use gameState.moveHistory
 
                 int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
 
