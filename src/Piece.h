@@ -26,6 +26,9 @@ Rook: remembers if it has move before (for castling)
 #define MOVABLE_MASK 0x40
 #define RISKY_MOVE_MASK 0x80
 
+// Maximum number of pieces that can be captured
+#define MAX_CAPTURED 16
+
 void loadPieceTextures(SDL_Texture* textures[2][7], SDL_Renderer** renderer);
 
 SDL_Texture* getPieceTexture(SDL_Texture* textures[2][7], unsigned char piece);

@@ -5,6 +5,7 @@
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
 #include "util.h"
+#include "engine.h"
 
 // Function declaration from main.c for position analysis
 void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]);

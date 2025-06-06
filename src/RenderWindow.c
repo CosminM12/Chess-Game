@@ -6,9 +6,15 @@
 
 #include "RenderWindow.h"
 #include "Piece.h"
+#include "app_globals.h"
 
 // Store the renderer as a static variable for access from other modules
 static SDL_Renderer* globalRenderer = NULL;
+
+TTF_Font *globalFont = NULL;
+
+// Renderer for external use
+SDL_Renderer* mainRenderer = NULL;
 
 bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** renderer, int screenWidth, int screenHeight) {
     //Create new window
@@ -31,12 +37,19 @@ bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** rende
     // Store the renderer globally
     globalRenderer = *renderer;
     
+    mainRenderer = *renderer;  // Store the renderer for external use
+    
     return true;
 }
 
 // Function to get the renderer for external use
 SDL_Renderer* getRenderer() {
     return globalRenderer;
+}
+
+// Function to get the renderer for external use
+SDL_Renderer* getMainRenderer() {
+    return mainRenderer;
 }
 
 void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
@@ -242,4 +255,97 @@ void clear(SDL_Renderer** renderer) {
 void cleanUp(SDL_Window* window) {
     TTF_Quit();
     SDL_DestroyWindow(window);
+}
+
+bool initFont(const char *fontPath, int fontSize) {
+    if (TTF_Init() == -1) {
+        printf("TTF_Init failed: %s\n", TTF_GetError());
+        return false;
+    }
+
+    globalFont = TTF_OpenFont(fontPath, fontSize);
+    if (!globalFont) {
+        printf("Failed to load font: %s\n", TTF_GetError());
+        return false;
+    }
+
+    return true;
+}
+
+void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x, int y) {
+    if (!globalFont) {
+        printf("Font not initialized!\n");
+        return;
+    }
+
+    SDL_Surface *surface = TTF_RenderText_Blended(globalFont, text, color);
+    if (!surface) {
+        printf("Text render error: %s\n", TTF_GetError());
+        return;
+    }
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    SDL_Rect dstRect = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, NULL, &dstRect);
+
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+}
+
+void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state) {
+    // Constants for rendering captured pieces
+    const int capturedPieceSize = 40; // Smaller size for captured pieces
+    const int padding = 5;
+    const int piecesPerRow = 6; // Number of pieces to display per row in sidebar
+
+    SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
+
+    // Render White's Captured Pieces (Black's pieces)
+    // This goes into the 'Captured by Black' box, which is currently a blue box at 800, 100
+    int startX_blackCaptured = 800 + padding;
+    int startY_blackCaptured = 140 + padding; // Below the timer box
+
+    for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
+        unsigned char pieceType = state->whiteCapturedPieces[i];
+        // Captured pieces by White are Black's pieces (COLOR_MASK represents black if set)
+        unsigned char pieceByte = pieceType | COLOR_MASK; // Combine type with black color mask
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
+        }
+    }
+
+    // Render Black's Captured Pieces (White's pieces)
+    // This goes into the 'Captured by White' box, which is currently a purple box at 800 + 200, 250
+    int startX_whiteCaptured = 800 + padding;
+    int startY_whiteCaptured = 390 + padding; // Offset for white's captured box
+
+    for (int i = 0; i < state->numBlackCapturedPieces; i++) {
+        unsigned char pieceType = state->blackCapturedPieces[i];
+        // Captured pieces by Black are White's pieces (0 for white color)
+        unsigned char pieceByte = pieceType; // Combine type with white color (0 means white)
+
+        SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
+        if (tex) {
+            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+
+            SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
+            SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
+        }
+    }
+}
+
+void destroyFont() {
+    if (globalFont) {
+        TTF_CloseFont(globalFont);
+        globalFont = NULL;
+    }
+    TTF_Quit();
 }

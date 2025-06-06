@@ -4,13 +4,30 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
-// #include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_mixer.h>
+#include <string.h>
 
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "Events.h"
 #include "util.h"
 #include "engine.h"
+#include "GameState.h"
+#include "app_globals.h"
+
+// --- GLOBAL VARIABLE DEFINITIONS (from app_globals.h) ---
+GameScreenState currentScreenState = GAME_STATE_PLAYING;
+GamePromptActionType currentPromptAction = PROMPT_ACTION_NONE;
+char inputFileNameBuffer[256] = "";
+SDL_bool textInputActive = SDL_FALSE;
+
+// GameState history management variables - DEFINED HERE (declared in GameState.h)
+GameState historyStates[MAX_HISTORY_STATES];
+int historyCount = 0;
+int currentHistoryIdx = -1;
+// --- END GLOBAL VARIABLE DEFINITIONS ---
+
+int moveHistoryScrollOffset = 0;
 
 /*----------Variable declaration------------*/
 bool gameRunning = true;
@@ -39,6 +56,25 @@ bool showMenu = true; // Variable to control menu visibility
 int gameMode = 0; // 0 = not selected, 1 = PvP, 2 = PvE
 Uint32 moveTimestamp = 0; // Timestamp of the last player move
 
+int whiteTimeMs = 5 * 60 * 1000;
+int blackTimeMs = 5 * 60 * 1000;
+
+char whiteTimerStr[16];
+char blackTimerStr[16];
+
+// Add after other constants
+const int boardWidth = 800;
+const int sidebar1_width = 200;
+const int sidebar2_width = 200;
+
+// Function to format time for display
+void formatTime(char *buffer, int timeMs) {
+    int totalSeconds = timeMs / 1000;
+    int minutes = totalSeconds / 60;
+    int seconds = totalSeconds % 60;
+
+    snprintf(buffer, 16, "%02d:%02d", minutes, seconds);
+}
 
 /*---------Helper functions-----------*/
 bool init() {
@@ -50,6 +86,16 @@ bool init() {
     }
     if(TTF_Init() == -1) {
         printf("TTF_Init has failed. Error: %s\n", TTF_GetError());
+        return false;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer failed: %s\n", Mix_GetError());
+        return false;
+    }
+
+    if (!initFont("../res/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf", 24)) {
+        fprintf(stderr, "Font failed to load, check the path and font file.\n");
         return false;
     }
 
@@ -66,7 +112,55 @@ void printfBoard(unsigned char board[8][8]) {
     putchar('\n');
 }
 
+/* --- NEW UNDO/REDO FUNCTIONS --- */
+void recordGameState(GameState* state) {
+    // If we are not at the latest state (i.e., some undos have happened),
+    // a new move truncates the redo history.
+    if (currentHistoryIdx < historyCount - 1) {
+        historyCount = currentHistoryIdx + 1;
+    }
 
+    // Check for array bounds
+    if (historyCount >= MAX_HISTORY_STATES) {
+        // Option 1: Shift history to make space (more complex, not implemented here)
+        // Option 2: Just don't record if history is full (simple)
+        printf("History buffer full. Cannot record more states.\n");
+        return;
+    }
+
+    currentHistoryIdx++;
+    historyStates[currentHistoryIdx] = *state; // Copy the entire current game state
+    historyCount = currentHistoryIdx + 1; // Update total count of states
+    printf("Recorded state %d. Total states: %d\n", currentHistoryIdx, historyCount);
+
+    // Reset scroll offset to show current moves after recording a new state
+    moveHistoryScrollOffset = 0;
+}
+
+void undoGame(GameState* state) {
+    if (currentHistoryIdx > 0) {
+        currentHistoryIdx--;
+        *state = historyStates[currentHistoryIdx]; // Revert to previous state
+        printf("Undone to state %d.\n", currentHistoryIdx);
+        // Reset scroll offset to show the newly reverted state's moves
+        moveHistoryScrollOffset = 0;
+    } else {
+        printf("Cannot undo further.\n");
+    }
+}
+
+void redoGame(GameState* state) {
+    if (currentHistoryIdx < historyCount - 1) {
+        currentHistoryIdx++;
+        *state = historyStates[currentHistoryIdx]; // Re-apply next state
+        printf("Redone to state %d.\n", currentHistoryIdx);
+        // Reset scroll offset to show the newly redone state's moves
+        moveHistoryScrollOffset = 0;
+    } else {
+        printf("Cannot redo further.\n");
+    }
+}
+/* --- END NEW UNDO/REDO FUNCTIONS --- */
 
 // Function to draw the evaluation bar
 void drawEvaluationBar(SDL_Renderer* renderer, int score) {
@@ -122,33 +216,6 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     
     // Reset render color
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-}
-
-
-
-// Function to make the computer move
-void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    unsigned char color = *blackTurn ? 1 : 0;
-    Move bestMove = findBestMove(board, color, lastDoublePawn, kingsPositions);
-    
-    if (bestMove.from.x != -1) {
-        makeEngineMove(board, bestMove, lastDoublePawn, kingsPositions);
-        *blackTurn = !*blackTurn;
-        
-        // Check for checkmate or stalemate after the move
-        unsigned char nextColor = *blackTurn ? 1 : 0;
-        MoveList moveList;
-        generateMoves(board, nextColor, &moveList, lastDoublePawn);
-        
-        if (moveList.count == 0) {
-            // Check if the king is in check
-            if (isCheck(board, kingsPositions[nextColor])) {
-                printf("Checkmate! %s wins!\n", nextColor == 1 ? "White" : "Black");
-            } else {
-                printf("Stalemate! Game is drawn.\n");
-            }
-        }
-    }
 }
 
 // Function to draw game status text (check, checkmate, stalemate)
@@ -246,11 +313,6 @@ void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f
                    legalMoves.moves[i].safetyScore);
         }
     }
-}
-
-// Function to get the renderer for external modules
-SDL_Renderer* getMainRenderer() {
-    return renderer;
 }
 
 // Function to draw the menu overlay
@@ -369,163 +431,406 @@ bool drawMenu(SDL_Renderer* renderer, int screenWidth, int screenHeight, int* se
 }
 
 int main(int argc, char* argv[]) {
-    //==========Program Initialization==========//
+    // Initialize game state
+    GameState gameState;
+    initGameState(&gameState);
+    
+    // Initialize SDL
     bool SDLInit = init();
     bool windowCreation = createWindow("Chess Game", &window, &renderer, screenWidth, screenHeight);
-
-    if(!windowCreation || !SDLInit) {
+    
+    if (!windowCreation || !SDLInit) {
         return -1;
     }
     printf("Program started successfully\n");
-
-    //==========Initialize Variables==========//
-    unsigned char board[8][8] = {0};
-    //Each square has 1 bite(unsigned char) or 8 bits:
-    //Bits 6 to 8 (3 bits) know the type of piece on the square: 1=pawn, 2=bishop, 3=knight, 4=rook, 5=queen, 6=king
-    //Bits 4 and 5 (2 bits) know the color of the piece on the square: 1 on bit 5 is white (0x10), 1 on bit 4 is black (0x20)
-    //Bit 3 knows if the square is clicked on
     
-    bool mouseActions[2] = {false, false};
-    /*
-    *pos0: mouseButtonDown (click button pressed)
-    *pos1: mouseButtonUp (click button released)
-    */
-    bool pieceActions[2] = {false, false}; 
-    /*
-    *pos0: isSelected(a piece is selected)
-    *pos1: isHoldingPiece (a piece is holded in "hand")
-    */
-
-    bool blackTurn = false; // remember who's player is the turn
-    SDL_Event event;
+    // Record initial game state
+    recordGameState(&gameState);
+    
+    // Load piece textures
     SDL_Texture* pieceTextures[2][7];
-    Vector2f selectedSquare = createVector(-1, -1);
-    Vector2f kingsPositions[2];
-    Vector2f lastDoublePushPawn = createVector(-1, -1);
-    SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
-    int mouseX, mouseY;
-
-    // Engine variables
-    int currentScore = 0;
-    
-    //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
-    char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
-    placePieces(board, input);
-    initCastlingRights(board); // Initialize castling rights (sets MODIFIER flags)
-    findKings(board, kingsPositions); //Initialize kings positions
+    SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     
-    
-    // Game state variables for check/checkmate/stalemate
+    // Initialize game variables
+    SDL_Event event;
+    int mouseX, mouseY;
     bool isInCheck = false;
     bool isGameOver = false;
     bool isStalemate = false;
     
-    while(gameRunning) {
-        //==========Find time variables==========//
-        lastTick = currentTick;
-        currentTick = SDL_GetPerformanceCounter();
-        deltaTime = (double)((currentTick - lastTick)*1000/(double)SDL_GetPerformanceFrequency());
-        
-        //==========Events and movements==========//
-        getEvents(event, &gameRunning, mouseActions);
-        SDL_GetMouseState(&mouseX, &mouseY);
-        
-        // Handle menu state
-        if (showMenu) {
-            // Render the chess board in the background
-            clear(&renderer);
-            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, board);
-            
-            for(int row=0;row<8;row++) {
-                for(int col=0;col<8;col++) {
-                    renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
+    // Initialize engine
+    initializeEngine();
+    
+    // Main menu loop
+    bool inMenu = true;
+    while (inMenu && gameState.gameRunning) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                gameState.gameRunning = false;
+                inMenu = false;
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                int x = event.button.x;
+                int y = event.button.y;
+                
+                // Check if PvP button clicked
+                if (x >= (screenWidth - 200) / 2 && x <= (screenWidth + 200) / 2 &&
+                    y >= screenHeight / 2 - 60 - 20 && y <= screenHeight / 2 - 20) {
+                    inMenu = false;
+                    gameMode = 1; // PvP mode
+                }
+                // Check if PvE button clicked
+                else if (x >= (screenWidth - 200) / 2 && x <= (screenWidth + 200) / 2 &&
+                         y >= screenHeight / 2 + 20 && y <= screenHeight / 2 + 60 + 20) {
+                    inMenu = false;
+                    gameMode = 2; // PvE mode
+                    computerPlaysBlack = true;
                 }
             }
-            
-            // Draw the menu overlay and check for button clicks
-            int selectedMode = 0;
-            if (drawMenu(renderer, screenWidth, screenHeight, &selectedMode)) {
-                showMenu = false; // Exit menu if a button was clicked
-                gameMode = selectedMode;
+        }
+        
+        // Render menu
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
+        SDL_RenderClear(renderer);
+        drawMenu(renderer, screenWidth, screenHeight, &gameMode);
+        SDL_RenderPresent(renderer);
+    }
+    
+    // Initialize game time tracking
+    lastTick = SDL_GetPerformanceCounter();
+    currentTick = lastTick;
+    
+    // Main game loop
+    while (gameState.gameRunning) {
+        lastTick = currentTick;
+        currentTick = SDL_GetPerformanceCounter();
+        deltaTime = (double)((currentTick - lastTick) * 1000 / (double)SDL_GetPerformanceFrequency());
+        
+        // Update timers
+        if (gameState.blackTurn) {
+            gameState.blackTimeMs -= deltaTime;
+            if (gameState.blackTimeMs < 0) gameState.blackTimeMs = 0;
+        } else {
+            gameState.whiteTimeMs -= deltaTime;
+            if (gameState.whiteTimeMs < 0) gameState.whiteTimeMs = 0;
+        }
+        
+        // Process events
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                gameState.gameRunning = false;
+            } else if (event.type == SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                        // Toggle menu or cancel filename prompt
+                        if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                            currentScreenState = GAME_STATE_PLAYING;
+                            SDL_StopTextInput();
+                            textInputActive = SDL_FALSE;
+                        } else if (currentScreenState == GAME_STATE_PLAYING) {
+                            inMenu = !inMenu;
+                        }
+                        break;
+                    case SDLK_e:
+                        // Toggle evaluation bar
+                        showEvaluationBar = !showEvaluationBar;
+                        break;
+                    case SDLK_a:
+                        // Toggle analysis
+                        showAnalysis = !showAnalysis;
+                        break;
+                    case SDLK_RETURN:
+                        // Handle filename prompt confirmation
+                        if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                            if (currentPromptAction == PROMPT_ACTION_SAVE) {
+                                saveGameToFile(&gameState, inputFileNameBuffer);
+                            } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+                                loadGameFromFile(&gameState, inputFileNameBuffer);
+                                recordGameState(&gameState); // Record the loaded state
+                            }
+                            currentScreenState = GAME_STATE_PLAYING;
+                            SDL_StopTextInput();
+                            textInputActive = SDL_FALSE;
+                        }
+                        break;
+                    case SDLK_BACKSPACE:
+                        // Handle backspace in text input
+                        if (currentScreenState == GAME_STATE_PROMPT_FILENAME && strlen(inputFileNameBuffer) > 0) {
+                            inputFileNameBuffer[strlen(inputFileNameBuffer) - 1] = '\0';
+                        }
+                        break;
+                }
+            } else if (event.type == SDL_TEXTINPUT) {
+                // Handle text input for filename
+                if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+                    if (strlen(inputFileNameBuffer) < sizeof(inputFileNameBuffer) - 1) {
+                        strcat(inputFileNameBuffer, event.text.text);
+                    }
+                }
+            } else if (event.type == SDL_MOUSEBUTTONDOWN) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    gameState.mouseActions[0] = true;
+                    
+                    // Get mouse position
+                    SDL_GetMouseState(&mouseX, &mouseY);
+                    
+                    // Check for button clicks in sidebar
+                    if (currentScreenState == GAME_STATE_PLAYING) {
+                        // Define positions for buttons
+                        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+                        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
+                        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
+                        SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+                        
+                        if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
+                            mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
+                            printf("Save Game button clicked! Opening prompt...\n");
+                            currentScreenState = GAME_STATE_PROMPT_FILENAME;
+                            currentPromptAction = PROMPT_ACTION_SAVE;
+                            SDL_StartTextInput();
+                            inputFileNameBuffer[0] = '\0';
+                            textInputActive = SDL_TRUE;
+                        }
+                        else if (mouseX >= loadButton.x && mouseX <= loadButton.x + loadButton.w &&
+                                 mouseY >= loadButton.y && mouseY <= loadButton.y + loadButton.h) {
+                            printf("Load Game button clicked! Opening prompt...\n");
+                            currentScreenState = GAME_STATE_PROMPT_FILENAME;
+                            currentPromptAction = PROMPT_ACTION_LOAD;
+                            SDL_StartTextInput();
+                            inputFileNameBuffer[0] = '\0';
+                            textInputActive = SDL_TRUE;
+                        }
+                        else if (mouseX >= undoButton.x && mouseX <= undoButton.x + undoButton.w &&
+                                 mouseY >= undoButton.y && mouseY <= undoButton.y + undoButton.h) {
+                            printf("Undo button clicked!\n");
+                            undoGame(&gameState);
+                        }
+                        else if (mouseX >= redoButton.x && mouseX <= redoButton.x + redoButton.w &&
+                                 mouseY >= redoButton.y && mouseY <= redoButton.y + redoButton.h) {
+                            printf("Redo button clicked!\n");
+                            redoGame(&gameState);
+                        }
+                    }
+                }
+            } else if (event.type == SDL_MOUSEBUTTONUP) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    gameState.mouseActions[1] = true;
+                }
+            }
+        }
+        
+        // Handle mouse input for chess moves
+        SDL_GetMouseState(&mouseX, &mouseY);
+        if (mouseX < boardWidth && mouseY < boardWidth && currentScreenState == GAME_STATE_PLAYING && !inMenu) {
+            // Only allow moves if it's not computer's turn in PvE mode
+            if (!(gameMode == 2 && gameState.blackTurn && computerPlaysBlack)) {
+                handleMouseInput(gameState.board, mouseX, mouseY, screenWidth, squareSize, 
+                              gameState.mouseActions, gameState.pieceActions, &gameState.blackTurn, 
+                              &gameState.selectedSquare, &gameState.lastDoublePushPawn, gameState.kingsPositions);
                 
-                // If PvE mode is selected, make the computer play black
-                if (gameMode == 2) {
-                    computerPlaysBlack = true;
-                    // If it's already black's turn, make the computer move immediately
-                    if (blackTurn) {
-                        makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
+                // Record game state after a move is made
+                if (gameState.mouseActions[1]) {  // If mouse button was released
+                    recordGameState(&gameState);
+                    
+                    // Set timestamp for computer's move in PvE mode
+                    if (gameMode == 2 && !gameState.blackTurn && computerPlaysBlack) {
+                        moveTimestamp = SDL_GetTicks();
+                    }
+                }
+            }
+        }
+        
+        // Reset mouse actions
+        gameState.mouseActions[0] = false;
+        gameState.mouseActions[1] = false;
+        
+        // Make computer move in PvE mode after delay
+        if (gameMode == 2 && gameState.blackTurn && computerPlaysBlack && SDL_GetTicks() - moveTimestamp > 500) {
+            unsigned char color = gameState.blackTurn ? 1 : 0;
+            EngineMove bestMove = findBestMove(gameState.board, color, &gameState.lastDoublePushPawn, gameState.kingsPositions);
+            
+            if (bestMove.from.x != -1) {
+                makeEngineMove(gameState.board, bestMove, &gameState.lastDoublePushPawn, gameState.kingsPositions);
+                gameState.blackTurn = !gameState.blackTurn;
+                recordGameState(&gameState);
+            }
+        }
+        
+        // Check game status
+        isInCheck = isCheck(gameState.board, gameState.kingsPositions[gameState.blackTurn ? 1 : 0]);
+        
+        MoveList moveList;
+        generateMoves(gameState.board, gameState.blackTurn ? 1 : 0, &moveList, &gameState.lastDoublePushPawn);
+        isGameOver = (moveList.count == 0 && isInCheck);
+        isStalemate = (moveList.count == 0 && !isInCheck);
+        
+        // Clear screen
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        
+        if (inMenu) {
+            // Render menu overlay
+            drawMenu(renderer, screenWidth, screenHeight, &gameMode);
+        } else if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
+            // Render the main game in the background
+            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
+            
+            // Render pieces
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    if (gameState.board[row][col] & TYPE_MASK) {
+                        renderPiece(pieceTextureCoordinates, 0, squareSize, row, col, 
+                                  getPieceTexture(pieceTextures, gameState.board[row][col]), &renderer);
                     }
                 }
             }
             
-            display(&renderer);
+            // Render the prompt overlay
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+            SDL_Rect dimmer = {0, 0, screenWidth, screenHeight};
+            SDL_RenderFillRect(renderer, &dimmer);
             
-            // Skip the rest of the game logic while in menu
-            continue;
-        }
-        
-        if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
-            handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare, &lastDoublePushPawn, kingsPositions);
-            mouseActions[0] = false;
-            mouseActions[1] = false;
-        }
-        
-        // Make computer move if engine is enabled
-        if (engineEnabled) {
-            makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
-        }
-        
-        // Handle computer moves in PvE mode with a 500ms delay
-        if (gameMode == 2 && moveTimestamp > 0 && blackTurn) {
-            Uint32 currentTime = SDL_GetTicks();
-            if (currentTime - moveTimestamp >= 500) {  // 500 ms = 0.5 second
-                printf("Computer making move after 0.5 second delay\n");
-                makeComputerMove(board, &blackTurn, &lastDoublePushPawn, kingsPositions);
-                moveTimestamp = 0;  // Reset the timestamp
+            SDL_Rect promptBox = {screenWidth / 2 - 200, screenHeight / 2 - 75, 400, 150};
+            SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+            SDL_RenderFillRect(renderer, &promptBox);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderDrawRect(renderer, &promptBox);
+            
+            char promptText[64];
+            if (currentPromptAction == PROMPT_ACTION_SAVE) {
+                snprintf(promptText, sizeof(promptText), "Enter filename to SAVE:");
+            } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
+                snprintf(promptText, sizeof(promptText), "Enter filename to LOAD:");
+            } else {
+                snprintf(promptText, sizeof(promptText), "Enter filename:");
+            }
+            renderText(renderer, promptText, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 10);
+            renderText(renderer, inputFileNameBuffer, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 50);
+            renderText(renderer, "Press ENTER to confirm", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 90);
+            renderText(renderer, "Press ESC to cancel", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 110);
+        } else {
+            // Render the main game
+            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
+            
+            // Render sidebar background
+            SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &sidebar_background);
+            
+            // Render timer box
+            SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, 100};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &timerBox);
+            
+            // Format and render timers
+            formatTime(whiteTimerStr, gameState.whiteTimeMs);
+            formatTime(blackTimerStr, gameState.blackTimeMs);
+            
+            renderText(renderer, "White:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 10);
+            renderText(renderer, whiteTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 10);
+            
+            renderText(renderer, "Black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 40);
+            renderText(renderer, blackTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 40);
+            
+            // Render captured pieces boxes
+            SDL_Rect capturedBlackBox = {boardWidth, 100, sidebar1_width, 250};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &capturedBlackBox);
+            
+            SDL_Rect capturedWhiteBox = {boardWidth, 350, sidebar1_width, 250};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &capturedWhiteBox);
+            
+            // Render button box
+            SDL_Rect buttonBox = {boardWidth, screenHeight - 150, sidebar1_width, 150};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &buttonBox);
+            
+            // Render move history box
+            SDL_Rect moveHistoryBox = {boardWidth + sidebar1_width, 0, sidebar2_width, screenHeight};
+            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
+            SDL_RenderFillRect(renderer, &moveHistoryBox);
+            
+            // Render captured pieces labels
+            renderText(renderer, "Captured by white:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 110);
+            renderText(renderer, "Captured by black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 360);
+            
+            // Render pieces
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    if (gameState.board[row][col] & TYPE_MASK) {
+                        renderPiece(pieceTextureCoordinates, 0, squareSize, row, col, 
+                                  getPieceTexture(pieceTextures, gameState.board[row][col]), &renderer);
+                    }
+                }
+            }
+            
+            // Render captured pieces
+            renderCapturedPieces(renderer, pieceTextures, &gameState);
+            
+            // Render move history
+            renderText(renderer, "MOVE HISTORY:", (SDL_Color){255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
+            
+            const int moveHeight = 25;
+            int visibleStart = moveHistoryScrollOffset / moveHeight;
+            int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
+            
+            for (int i = visibleStart; i < visibleEnd && i < gameState.moveCount; ++i) {
+                char buffer[64];
+                sprintf(buffer, "%d. %s", (i + 1), gameState.moveHistory[i].notation);
+                
+                int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
+                
+                if (y >= 40 && y < screenHeight - 10) {
+                    renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255},
+                             boardWidth + sidebar1_width + 15, y);
+                }
+            }
+            
+            // Render Save and Load buttons
+            SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
+            SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
+            SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
+            SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+            
+            SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
+            SDL_RenderFillRect(renderer, &saveButton);
+            renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 5);
+            
+            SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
+            SDL_RenderFillRect(renderer, &loadButton);
+            renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 5);
+            
+            SDL_SetRenderDrawColor(renderer, 150, 50, 0, 255); // Orange for undo
+            SDL_RenderFillRect(renderer, &undoButton);
+            renderText(renderer, "Undo", (SDL_Color){255, 255, 255, 255}, undoButton.x + 40, undoButton.y + 5);
+            
+            SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255); // Cyan for redo
+            SDL_RenderFillRect(renderer, &redoButton);
+            renderText(renderer, "Redo", (SDL_Color){255, 255, 255, 255}, redoButton.x + 40, redoButton.y + 5);
+            
+            // Draw game status (check, checkmate, stalemate)
+            drawGameStatus(renderer, isInCheck, isGameOver, isStalemate, gameState.blackTurn);
+            
+            // Draw evaluation bar if enabled
+            if (showEvaluationBar) {
+                int score = evaluatePosition(gameState.board, gameState.blackTurn ? 1 : 0);
+                drawEvaluationBar(renderer, score);
+            }
+            
+            // Show position analysis if enabled
+            if (showAnalysis) {
+                displayPositionAnalysis(gameState.board, gameState.blackTurn, &gameState.lastDoublePushPawn, gameState.kingsPositions);
             }
         }
         
-        // Update the current score
-        currentScore = getRelativeScore(board);
-        
-        // Check for check, checkmate, or stalemate
-        unsigned char currentColor = blackTurn ? 1 : 0;
-        isInCheck = isCheck(board, kingsPositions[currentColor]);
-        
-        MoveList moveList;
-        generateMoves(board, currentColor, &moveList, &lastDoublePushPawn);
-        
-        isGameOver = moveList.count == 0;
-        isStalemate = isGameOver && !isInCheck;
-        
-        //==========Render Visuals==========//
-        clear(&renderer);
-        drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, board);
-        
-        // Draw evaluation bar
-        if (showEvaluationBar) {
-            drawEvaluationBar(renderer, currentScore);
-        }
-        
-        for(int row=0;row<8;row++) {
-            for(int col=0;col<8;col++) {
-                renderPiece(pieceTextureCoordinates, 200, squareSize, row, col, getPieceTexture(pieceTextures, board[row][col]), &renderer);
-            }
-        } 
-        
-        // Draw game status
-        drawGameStatus(renderer, isInCheck, isGameOver, isStalemate, blackTurn);
-        
-        display(&renderer);
-        
-        // Show analysis if requested
-        if (showAnalysis) {
-            displayPositionAnalysis(board, blackTurn, &lastDoublePushPawn, kingsPositions);
-            showAnalysis = false; // Only show once per request
-        }
+        // Present the renderer
+        SDL_RenderPresent(renderer);
     }
-
+    
+    // Cleanup
+    destroyFont();
+    cleanUp(window);
     printf("Program ended\n");
     return 0;
 }
