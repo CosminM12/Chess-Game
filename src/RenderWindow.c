@@ -53,7 +53,8 @@ SDL_Renderer* getMainRenderer() {
 }
 
 void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {
-    int boardOffset = (screenWidth - squareSize*8) / 2;
+    // Board is now on the left side, no offset needed
+    int boardOffset = 0;
     for(int row = 0; row < 8; row++) {
         for(int col = 0; col < 8; col++) {
 
@@ -119,7 +120,8 @@ void renderPiece(SDL_Rect pieceAtlas, int boardOffset, int squareSize, int line,
     SDL_Rect src = pieceAtlas;
 
     SDL_Rect dst;
-    dst.x = boardOffset+col*squareSize;
+    // Board is now on the left side, no offset needed
+    dst.x = col*squareSize;
     dst.y = line*squareSize;
     dst.w = squareSize;
     dst.h = squareSize;
@@ -150,10 +152,9 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
     SDL_RenderDrawRect(renderer, &menuRect);
     
     // Draw menu title
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18);
-    if (font) {
+    if (globalFont) {
         SDL_Color textColor = {0, 0, 0, 255}; // Black
-        SDL_Surface* textSurface = TTF_RenderText_Solid(font, "Promote pawn to:", textColor);
+        SDL_Surface* textSurface = TTF_RenderText_Solid(globalFont, "Promote pawn to:", textColor);
         if (textSurface) {
             SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
             if (textTexture) {
@@ -168,7 +169,6 @@ unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextur
             }
             SDL_FreeSurface(textSurface);
         }
-        TTF_CloseFont(font);
     }
     
     // Draw promotion options
@@ -295,16 +295,16 @@ void renderText(SDL_Renderer *renderer, const char *text, SDL_Color color, int x
 
 void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][7], GameState* state) {
     // Constants for rendering captured pieces
-    const int capturedPieceSize = 40; // Smaller size for captured pieces
+    const int capturedPieceSize = 30; // Smaller size for captured pieces
     const int padding = 5;
-    const int piecesPerRow = 6; // Number of pieces to display per row in sidebar
+    const int piecesPerRow = 5; // Number of pieces to display per row in sidebar
+    const int boardWidth = 800; // 8 squares of 100px each
 
     SDL_Rect srcRect = {0, 0, 60, 60}; // Assuming piece textures are 60x60 within a larger atlas
 
     // Render White's Captured Pieces (Black's pieces)
-    // This goes into the 'Captured by Black' box, which is currently a blue box at 800, 100
-    int startX_blackCaptured = 800 + padding;
-    int startY_blackCaptured = 140 + padding; // Below the timer box
+    int startX_whiteCaptured = boardWidth + padding;
+    int startY_whiteCaptured = 150; // Below the timer and move history title
 
     for (int i = 0; i < state->numWhiteCapturedPieces; i++) {
         unsigned char pieceType = state->whiteCapturedPieces[i];
@@ -313,8 +313,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
 
         SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
         if (tex) {
-            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
-            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
 
             SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
             SDL_RenderCopy(renderer, tex, &srcRect, &destRect);
@@ -322,9 +322,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
     }
 
     // Render Black's Captured Pieces (White's pieces)
-    // This goes into the 'Captured by White' box, which is currently a purple box at 800 + 200, 250
-    int startX_whiteCaptured = 800 + padding;
-    int startY_whiteCaptured = 390 + padding; // Offset for white's captured box
+    int startX_blackCaptured = boardWidth + padding;
+    int startY_blackCaptured = 350; // Further down for black's captured pieces
 
     for (int i = 0; i < state->numBlackCapturedPieces; i++) {
         unsigned char pieceType = state->blackCapturedPieces[i];
@@ -333,8 +332,8 @@ void renderCapturedPieces(SDL_Renderer *renderer, SDL_Texture* pieceTextures[2][
 
         SDL_Texture *tex = getPieceTexture(pieceTextures, pieceByte);
         if (tex) {
-            int currentX = startX_whiteCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
-            int currentY = startY_whiteCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
+            int currentX = startX_blackCaptured + (i % piecesPerRow) * (capturedPieceSize + padding);
+            int currentY = startY_blackCaptured + (i / piecesPerRow) * (capturedPieceSize + padding);
 
             SDL_Rect destRect = {currentX, currentY, capturedPieceSize, capturedPieceSize};
             SDL_RenderCopy(renderer, tex, &srcRect, &destRect);

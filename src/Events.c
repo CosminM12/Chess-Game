@@ -42,8 +42,8 @@ void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
 }
 
 bool mouseInsideBoard(int mouseX, int mouseY, int screenWidth, int squareSize) {
-    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
-    return boardOffset < mouseX  && mouseX < (screenWidth - boardOffset);
+    // Board is now on the left side, not centered
+    return mouseX < 8 * squareSize && mouseY < 8 * squareSize;
 }
 
 void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pieceActions[], Vector2f *selectedSquare) {
@@ -59,57 +59,82 @@ void selectAndHold(unsigned char board[8][8], int squareX, int squareY, bool pie
     (*selectedSquare).y = squareY;
 }
 
+// Check if a move is legal (doesn't leave the king in check)
+bool isMoveLegal(unsigned char board[8][8], int destX, int destY, Vector2f sourceSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
+    unsigned char tempBoard[8][8];
+    Vector2f tempKingsPositions[2] = {kingsPositions[0], kingsPositions[1]};
+    
+    // Copy the board to a temporary board
+    for(int i = 0; i < 8; i++) {
+        for(int j = 0; j < 8; j++) {
+            tempBoard[i][j] = board[i][j];
+        }
+    }
+    
+    // Get the color and type of the moving piece
+    int oldX = sourceSquare.x;
+    int oldY = sourceSquare.y;
+    unsigned char movingPiece = board[oldY][oldX];
+    unsigned int pieceType = movingPiece & TYPE_MASK;
+    unsigned int color = (movingPiece & COLOR_MASK) >> 4;
+    
+    // Make the move on the temporary board
+    tempBoard[destY][destX] = tempBoard[oldY][oldX];
+    tempBoard[oldY][oldX] = 0;
+    
+    // Update king position if king is moving
+    if(pieceType == KING) {
+        tempKingsPositions[color].x = destY;
+        tempKingsPositions[color].y = destX;
+    }
+    
+    // Check if the king is in check after the move
+    return !isCheck(tempBoard, tempKingsPositions[color]);
+}
+
 void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceSquare, bool pieceActions[], Vector2f* lastDoublePawn, Vector2f kingsPositions[], bool* blackTurn) {
     int oldX = (*sourceSquare).x;
     int oldY = (*sourceSquare).y;
-
-    //check if any piece is captured
-    bool capture = (board[destY][destX] & TYPE_MASK) != 0;
-
-    unsigned char pieceType = board[oldY][oldX] & TYPE_MASK;
-    unsigned char color = (board[oldY][oldX] & COLOR_MASK) >> 4;
     
-    // Check if we are dealing with a king or rook to track castling rights
-    bool isKing = (pieceType == KING);
-    bool isRook = (pieceType == ROOK);
+    unsigned char movingPiece = board[oldY][oldX];
+    unsigned int pieceType = movingPiece & TYPE_MASK;
+    unsigned int color = (movingPiece & COLOR_MASK) >> 4;
     
-    // For kings and rooks, always clear the MODIFIER flag to mark they've moved
-    if (isKing || isRook) { 
-        // Clear the MODIFIER flag from the piece before moving it
-        board[oldY][oldX] &= ~MODIFIER;
-    }
+    bool isPromotion = false;
     
     // Check for pawn promotion
-    bool isPromotion = (pieceType == PAWN) && (destY == 0 || destY == 7);
-    unsigned char promotedPiece = 0;
+    if(pieceType == PAWN) {
+        if((color == 0 && destY == 0) || (color == 1 && destY == 7)) {
+            isPromotion = true;
+        }
+    }
     
-    if (isPromotion) {
-        // Get the renderer from the main window
-        SDL_Renderer* renderer = getMainRenderer();
-        
-        // Load piece textures
-        SDL_Texture* pieceTextures[2][7];
-        loadPieceTextures(pieceTextures, &renderer);
-        
-        // Show promotion menu and get selected piece
-        promotedPiece = showPromotionMenu(renderer, pieceTextures, destX, destY, color, 1200, 800);
-        
-        // Place the promoted piece
-        board[destY][destX] = promotedPiece;
-    } else {
-        //copy piece to new location (preserve color and type)
-        board[destY][destX] = (board[oldY][oldX] & (TYPE_MASK | COLOR_MASK));
-        
-        // For KING and ROOK, ensure MODIFIER flag is cleared after copying
-        // This permanently disallows castling with this piece
-        if (pieceType == KING || pieceType == ROOK) {
-            // Clear the MODIFIER flag (set it to 0)
-            board[destY][destX] &= ~MODIFIER;
-        }
-        // For other pieces that use MODIFIER (like pawns), set it
-        else if (pieceType == PAWN) {
-            board[destY][destX] |= MODIFIER;
-        }
+    // Check if the move is legal (doesn't leave the king in check)
+    if (!isMoveLegal(board, destX, destY, *sourceSquare, lastDoublePawn, kingsPositions)) {
+        printf("Illegal move! King would be in check.\n");
+        // Deselect the piece but don't make the move
+        deselectPiece(board, sourceSquare, pieceActions);
+        clearPossibleBoard(board);
+        return;
+    }
+    
+    // Check for capture
+    bool capture = board[destY][destX] != 0;
+
+    //move piece to destination
+    board[destY][destX] = board[oldY][oldX];
+
+    //deselect piece
+    board[destY][destX] &= (~SELECTED_MASK);
+    
+    // For kings and rooks, clear the MODIFIER flag
+    if (pieceType == KING || pieceType == ROOK) {
+        // Clear the MODIFIER flag (set it to 0)
+        board[destY][destX] &= ~MODIFIER;
+    }
+    // For other pieces that use MODIFIER (like pawns), set it
+    else if (pieceType == PAWN) {
+        board[destY][destX] |= MODIFIER;
     }
     
     //---Handle special moves---
@@ -215,10 +240,14 @@ void deselectPiece(unsigned char board[8][8], Vector2f* selectedSquare, bool pie
 }
 
 void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int screenWidth, int squareSize, bool mouseActions[], bool pieceActions[], bool* blackTurn, Vector2f* selectedSquare, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
-    //Get square from mouse cursor
-    int boardOffset = (screenWidth - (8 * squareSize)) / 2;
-    int squareX = (int)((mouseX - boardOffset) / squareSize);
+    //Get square from mouse cursor - board is now on the left side, not centered
+    int squareX = (int)(mouseX / squareSize);
     int squareY = (int)(mouseY / squareSize);
+
+    // Ensure we're within the board bounds
+    if (squareX < 0 || squareX > 7 || squareY < 0 || squareY > 7) {
+        return;
+    }
 
     /*=================
     bool vector arrays

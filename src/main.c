@@ -42,7 +42,7 @@ SDL_Color color_possible = {200, 20, 20, 255};
 SDL_Color color_risky = {255, 128, 0, 255}; // Orange color for risky moves
 
 const int screenWidth=1200, screenHeight=800;
-const int squareSize=100;
+const int squareSize=100;  // Restored to original size
 
 Uint64 currentTick, lastTick;
 double deltaTime;
@@ -62,10 +62,14 @@ int blackTimeMs = 5 * 60 * 1000;
 char whiteTimerStr[16];
 char blackTimerStr[16];
 
-// Add after other constants
-const int boardWidth = 800;
-const int sidebar1_width = 200;
-const int sidebar2_width = 200;
+// Updated layout constants to match the second picture
+const int boardWidth = 8 * squareSize;  // 8 squares of 100px each = 800px
+const int sidebar1_width = screenWidth - boardWidth;  // Remaining width for sidebar
+const int sidebar2_width = 0;  // No second sidebar in the new layout
+const int timer_height = 80;
+const int captured_height = 200;
+const int move_history_height = 300;
+const int buttons_height = 100;
 
 // Function to format time for display
 void formatTime(char *buffer, int timeMs) {
@@ -94,9 +98,14 @@ bool init() {
         return false;
     }
 
-    if (!initFont("../res/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf", 24)) {
-        fprintf(stderr, "Font failed to load, check the path and font file.\n");
-        return false;
+    // Try multiple font paths to ensure one works
+    if (!initFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)) {
+        if (!initFont("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 24)) {
+            if (!initFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 24)) {
+                fprintf(stderr, "Font failed to load, check the path and font file.\n");
+                return false;
+            }
+        }
     }
 
     return true;
@@ -168,9 +177,9 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     getScoreBar(score, &whitePercentage, &blackPercentage);
     
     // Draw the bar on the right side of the screen
-    int barWidth = 30;
+    int barWidth = 20;
     int barHeight = 400;
-    int barX = screenWidth - barWidth - 20;
+    int barX = screenWidth - barWidth - 10;
     int barY = (screenHeight - barHeight) / 2;
     
     // Black portion (top)
@@ -190,7 +199,7 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     SDL_RenderDrawRect(renderer, &borderRect);
     
     // Draw evaluation value
-    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20);
+    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16);
     if (font) {
         char scoreText[32];
         snprintf(scoreText, sizeof(scoreText), "%.2f", score / 100.0f);
@@ -199,23 +208,18 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
         SDL_Surface* textSurface = TTF_RenderText_Solid(font, scoreText, textColor);
         if (textSurface) {
             SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-            if (textTexture) {
-                SDL_Rect textRect = {
-                    barX - 50,  // Position to the left of the bar
-                    barY + barHeight + 5,  // Below the bar
-                    textSurface->w,
-                    textSurface->h
-                };
-                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-                SDL_DestroyTexture(textTexture);
-            }
+            SDL_Rect textRect = {
+                barX - textSurface->w - 5,
+                barY + barHeight / 2 - textSurface->h / 2,
+                textSurface->w,
+                textSurface->h
+            };
+            SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+            SDL_DestroyTexture(textTexture);
             SDL_FreeSurface(textSurface);
         }
         TTF_CloseFont(font);
     }
-    
-    // Reset render color
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 }
 
 // Function to draw game status text (check, checkmate, stalemate)
@@ -577,10 +581,10 @@ int main(int argc, char* argv[]) {
                     // Check for button clicks in sidebar
                     if (currentScreenState == GAME_STATE_PLAYING) {
                         // Define positions for buttons
-                        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
-                        SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
-                        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
-                        SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+                        SDL_Rect saveButton = {boardWidth + 10, screenHeight - 100, 180, 40};
+                        SDL_Rect loadButton = {boardWidth + sidebar1_width - 190, screenHeight - 100, 180, 40};
+                        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 50, 180, 40};
+                        SDL_Rect redoButton = {boardWidth + sidebar1_width - 190, screenHeight - 50, 180, 40};
                         
                         if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
                             mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
@@ -673,7 +677,7 @@ int main(int argc, char* argv[]) {
             drawMenu(renderer, screenWidth, screenHeight, &gameMode);
         } else if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
             // Render the main game in the background
-            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
+            drawBoard(renderer, squareSize, 0, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
             
             // Render pieces
             for (int row = 0; row < 8; row++) {
@@ -710,50 +714,43 @@ int main(int argc, char* argv[]) {
             renderText(renderer, "Press ESC to cancel", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 110);
         } else {
             // Render the main game
-            drawBoard(renderer, squareSize, screenWidth, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
+            drawBoard(renderer, squareSize, 0, color_light, color_dark, color_clicked, color_possible, color_risky, gameState.board);
             
             // Render sidebar background
-            SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
+            SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width, screenHeight};
             SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
             SDL_RenderFillRect(renderer, &sidebar_background);
-            
-            // Render timer box
-            SDL_Rect timerBox = {boardWidth, 0, sidebar1_width, 100};
-            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
-            SDL_RenderFillRect(renderer, &timerBox);
             
             // Format and render timers
             formatTime(whiteTimerStr, gameState.whiteTimeMs);
             formatTime(blackTimerStr, gameState.blackTimeMs);
             
+            // Render timer section
             renderText(renderer, "White:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 10);
-            renderText(renderer, whiteTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 10);
+            renderText(renderer, whiteTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 100, 10);
             
             renderText(renderer, "Black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 40);
-            renderText(renderer, blackTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 150, 40);
+            renderText(renderer, blackTimerStr, (SDL_Color){255, 255, 255, 255}, boardWidth + 100, 40);
             
-            // Render captured pieces boxes
-            SDL_Rect capturedBlackBox = {boardWidth, 100, sidebar1_width, 250};
-            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
-            SDL_RenderFillRect(renderer, &capturedBlackBox);
+            // Render move history section
+            renderText(renderer, "MOVE HISTORY:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 80);
             
-            SDL_Rect capturedWhiteBox = {boardWidth, 350, sidebar1_width, 250};
-            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
-            SDL_RenderFillRect(renderer, &capturedWhiteBox);
+            const int moveHeight = 25;
+            int visibleStart = moveHistoryScrollOffset / moveHeight;
+            int visibleEnd = visibleStart + 10; // Show about 10 moves
             
-            // Render button box
-            SDL_Rect buttonBox = {boardWidth, screenHeight - 150, sidebar1_width, 150};
-            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
-            SDL_RenderFillRect(renderer, &buttonBox);
+            for (int i = visibleStart; i < visibleEnd && i < gameState.moveCount; ++i) {
+                char buffer[64];
+                sprintf(buffer, "%d. %s", (i + 1), gameState.moveHistory[i].notation);
+                
+                int y = 110 + (i - visibleStart) * moveHeight;
+                
+                renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255}, boardWidth + 15, y);
+            }
             
-            // Render move history box
-            SDL_Rect moveHistoryBox = {boardWidth + sidebar1_width, 0, sidebar2_width, screenHeight};
-            SDL_SetRenderDrawColor(renderer, 120, 120, 120, 255);
-            SDL_RenderFillRect(renderer, &moveHistoryBox);
-            
-            // Render captured pieces labels
-            renderText(renderer, "Captured by white:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 110);
-            renderText(renderer, "Captured by black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 360);
+            // Render captured pieces sections
+            renderText(renderer, "Captured by white:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 370);
+            renderText(renderer, "Captured by black:", (SDL_Color){255, 255, 255, 255}, boardWidth + 10, 470);
             
             // Render pieces
             for (int row = 0; row < 8; row++) {
@@ -768,30 +765,11 @@ int main(int argc, char* argv[]) {
             // Render captured pieces
             renderCapturedPieces(renderer, pieceTextures, &gameState);
             
-            // Render move history
-            renderText(renderer, "MOVE HISTORY:", (SDL_Color){255, 255, 255, 255}, boardWidth + sidebar1_width + 10, 10);
-            
-            const int moveHeight = 25;
-            int visibleStart = moveHistoryScrollOffset / moveHeight;
-            int visibleEnd = visibleStart + (screenHeight / moveHeight) + 1;
-            
-            for (int i = visibleStart; i < visibleEnd && i < gameState.moveCount; ++i) {
-                char buffer[64];
-                sprintf(buffer, "%d. %s", (i + 1), gameState.moveHistory[i].notation);
-                
-                int y = 40 + (i * moveHeight) - moveHistoryScrollOffset;
-                
-                if (y >= 40 && y < screenHeight - 10) {
-                    renderText(renderer, buffer, (SDL_Color){255, 255, 255, 255},
-                             boardWidth + sidebar1_width + 15, y);
-                }
-            }
-            
-            // Render Save and Load buttons
-            SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 140, 40};
-            SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 140, 40};
-            SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 140, 40};
-            SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 140, 40};
+            // Render buttons at the bottom of the sidebar
+            SDL_Rect saveButton = {boardWidth + 10, screenHeight - 100, 180, 40};
+            SDL_Rect loadButton = {boardWidth + sidebar1_width - 190, screenHeight - 100, 180, 40};
+            SDL_Rect undoButton = {boardWidth + 10, screenHeight - 50, 180, 40};
+            SDL_Rect redoButton = {boardWidth + sidebar1_width - 190, screenHeight - 50, 180, 40};
             
             SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
             SDL_RenderFillRect(renderer, &saveButton);
