@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h> // Include for malloc and free
 
 #include "Piece.h"
 #include "RenderWindow.h"
@@ -39,7 +40,7 @@ SDL_Texture* getPieceTexture(SDL_Texture* textures[2][7], unsigned char piece) {
     1B -> (b1)(b2)(b3)(b4)(b5)(b6)(b7)(b8)
     b6, b7, b8: Piece Type: 1-6
     b4, b5: Piece Color (0x10 = white, 0x20 = black)
-    b3: is selected 
+    b3: is selected
     =================*/
     int pieceColor = (piece & COLOR_MASK) >> 4;
     int pieceType = piece & TYPE_MASK;
@@ -98,13 +99,14 @@ void placePieces(unsigned char board[8][8], char* startPosition) {
     }
 }
 
+// CORRECTED exportPosition function
 void exportPosition(unsigned char board[8][8], char **exportString) {
     *exportString = malloc(73*sizeof(char)); //maximum 8x8 + 8 row-limiters + \0 = 73
     int numOfEmptySpaces = 0, cnt = 0;
     for(int i=0;i<8;i++) {
         for(int j=0;j<8;j++) {
             unsigned char piece = board[i][j] & TYPE_MASK;
-            unsigned char color = board[i][j] & COLOR_MASK;
+            unsigned char color = (board[i][j] & COLOR_MASK); // Keep as 0x10 or 0 for direct check
             if(piece == NONE) {
                 numOfEmptySpaces++;
             }
@@ -114,40 +116,37 @@ void exportPosition(unsigned char board[8][8], char **exportString) {
                     numOfEmptySpaces = 0;
                 }
                 switch(piece) {
-                    case PAWN:
-                        (*exportString)[cnt++] = 'p'; 
-                        break;
-                    case BISHOP:
-                        (*exportString)[cnt++] = 'b';
-                        break;
-                    case KNIGHT:
-                        (*exportString)[cnt++] = 'n';
-                        break;
-                    case ROOK:
-                        (*exportString)[cnt++] = 'r';
-                        break;
-                    case QUEEN:
-                        (*exportString)[cnt++] = 'q';
-                        break;
-                    case KING:
-                        (*exportString)[cnt++] = 'k';
-                        break;
+                    case PAWN:   (*exportString)[cnt++] = 'p'; break;
+                    case BISHOP: (*exportString)[cnt++] = 'b'; break;
+                    case KNIGHT: (*exportString)[cnt++] = 'n'; break;
+                    case ROOK:   (*exportString)[cnt++] = 'r'; break;
+                    case QUEEN:  (*exportString)[cnt++] = 'q'; break;
+                    case KING:   (*exportString)[cnt++] = 'k'; break;
                     default:
-                        (*exportString) = NULL;
+                        // Handle unknown piece type if necessary, or return error
+                        free(*exportString);
+                        *exportString = NULL;
                         return;
                 }
-                if(color != 0) {
+                // If it's a black piece (COLOR_MASK = 0x10 for black in your system)
+                // convert to uppercase as per your custom FEN format
+                if(color == COLOR_MASK) { // Check against COLOR_MASK (0x10) if uppercase means black
                     (*exportString)[cnt-1] = toupper((*exportString)[cnt-1]);
                 }
             }
         }
-        if(i<7) {
+        // After processing a row, if there are pending empty spaces, write them
+        if(numOfEmptySpaces != 0) {
+            (*exportString)[cnt++] = (char)(numOfEmptySpaces + '0');
+            numOfEmptySpaces = 0; // Reset for the next row
+        }
+        if(i<7) { // Don't add '/' after the last row
             (*exportString)[cnt++] = '/';
-            numOfEmptySpaces = 0;
         }
     }
-    exportString[cnt] = '\0';
+    (*exportString)[cnt] = '\0';
 }
+
 
 void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
     int foundKings = 0;
@@ -158,10 +157,10 @@ void findKings(unsigned char board[8][8], Vector2f kingsPositions[]) {
 
                 foundKings++;
                 unsigned int color = (board[i][j] & COLOR_MASK) >> 4;
-                
+
                 kingsPositions[color].x = i;
                 kingsPositions[color].y = j;
-                
+
                 if(foundKings == 2) {
                     return;
                 }
@@ -237,7 +236,7 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
                     printf("\nDiagonal threat: ");
                     return true;
                 }
-                
+
                 //exit if there is another piece on diagonal
                 break;
             }
@@ -288,7 +287,7 @@ bool isCheck(unsigned char board[8][8], Vector2f kingPosition) {
 
 //Checks if calc position is on board
 bool inBounds(int var) {
-    return -1 < var && var < 8; 
+    return -1 < var && var < 8;
 }
 
 //Checks if piece is of another color
@@ -329,7 +328,7 @@ void generateLongMoves(unsigned char board[8][8], int x, int y, int dx[], int dy
                 board[newX][newY] |=  MOVABLE_MASK;
             }
 
-            //Piece on square => add possible + break 
+                //Piece on square => add possible + break
             else if(opposingColor(board[newX][newY], color)) {
                 board[newX][newY] |=  MOVABLE_MASK;
                 break;
@@ -366,7 +365,7 @@ void clearPossibleBoard(unsigned char board[8][8]) {
 
 void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *lastDoublePawn) {
     clearPossibleBoard(board);
-    
+
     unsigned int type = board[x][y] & TYPE_MASK;
     unsigned int color = (board[x][y] & COLOR_MASK) >> 4;
     //color is 1 if piece is black, 0 if its white
@@ -427,7 +426,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
             generateStepMoves(board, x, y, jumpDX, jumpDY, color, 8);
             break;
         }
-            
+
         case BISHOP: {
             int diagDX[4] = {-1, -1, 1, 1};
             int diagDY[4] = {-1, 1, -1, 1};
