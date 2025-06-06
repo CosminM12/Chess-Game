@@ -4,27 +4,31 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
-#include <string.h> // <--- ADDED: For string manipulation
+#include <string.h>
 
 #include "RenderWindow.h"
 #include "Piece.h"
 #include "GameState.h"
 #include "Events.h"
 #include "util.h"
-#include "app_globals.h" // <--- ADDED: Include your new global header here
+#include "app_globals.h"
 
 
-// --- GLOBAL VARIABLE DEFINITIONS ---
-// These variables must be defined here, and declared as extern in app_globals.h
+// --- GLOBAL VARIABLE DEFINITIONS (from app_globals.h) ---
 GameScreenState currentScreenState = GAME_STATE_PLAYING;
 GamePromptActionType currentPromptAction = PROMPT_ACTION_NONE;
-char inputFileNameBuffer[256] = ""; // Renamed the buffer for clarity
+char inputFileNameBuffer[256] = "";
 SDL_bool textInputActive = SDL_FALSE;
+
+//GameState historyStates[MAX_HISTORY_STATES];
+//int historyCount = 0;
+//int currentHistoryIdx = -1;
+// --- END GLOBAL VARIABLE DEFINITIONS ---
+
 
 Move moveHistory[MAX_MOVES];
 int moveCount = 0;
 int moveHistoryScrollOffset = 0;
-// --- END GLOBAL VARIABLE DEFINITIONS ---
 
 
 const char* pieceToChar(unsigned char piece) {
@@ -36,29 +40,26 @@ const char* pieceToChar(unsigned char piece) {
     //     ...
     // }
     // For now, retaining the user's version, but it might be a bug source.
-    switch (piece & 0b11100000) { // This mask (0xE0) is incorrect for COLOR_MASK or TYPE_MASK
-        case 0x10: // white (This value 0x10 is COLOR_MASK for black if 0 for white)
-        case 0x20: // black (This value 0x20 is SELECTED_MASK, not a color)
+    switch (piece & 0b11100000) {
+        case 0x10: // white
+        case 0x20: // black
             break;
     }
 
-    // This switch uses 0b00111000 (0x38), which is not TYPE_MASK (0x7)
-    // Please verify your Piece.h masks and this function's logic.
-    // Assuming the user intended to mask for piece type.
     switch (piece & 0b00111000) {
-        case 0x08: return "";  // pawn (0x8 is MODIFIER, not PAWN=1)
-        case 0x10: return "B"; // bishop (0x10 is COLOR_MASK, not BISHOP=2)
-        case 0x18: return "N"; // knight (0x18 is MODIFIER | COLOR_MASK, not KNIGHT=3)
-        case 0x20: return "R"; // rook (0x20 is SELECTED_MASK, not ROOK=4)
-        case 0x28: return "Q"; // queen (0x28 is SELECTED_MASK | MODIFIER, not QUEEN=5)
-        case 0x30: return "K"; // king (0x30 is SELECTED_MASK | COLOR_MASK, not KING=6)
+        case 0x08: return "";  // pawn
+        case 0x10: return "B"; // bishop
+        case 0x18: return "N"; // knight
+        case 0x20: return "R"; // rook
+        case 0x28: return "Q"; // queen
+        case 0x30: return "K"; // king
         default:   return "?";
     }
 }
 
 
 /*----------Variable declaration------------*/
-bool gameRunning = true; // This can eventually be removed and use gameState.gameRunning directly
+bool gameRunning = true;
 
 GameState gameState;
 SDL_Window *window = NULL;
@@ -111,7 +112,7 @@ bool init() {
 
     if (!initFont("../res/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf", 24)) {
         fprintf(stderr, "Font failed to load, check the path and font file.\n");
-        return false; // Changed from -1 to false for consistency with bool return
+        return false;
     }
 
     return true;
@@ -128,6 +129,50 @@ void printfBoard(unsigned char board[8][8]) {
 }
 
 
+/* --- NEW UNDO/REDO FUNCTIONS --- */
+void recordGameState(GameState* state) {
+    // If we are not at the latest state (i.e., some undos have happened),
+    // a new move truncates the redo history.
+    if (currentHistoryIdx < historyCount - 1) {
+        historyCount = currentHistoryIdx + 1;
+    }
+
+    // Check for array bounds
+    if (historyCount >= MAX_HISTORY_STATES) {
+        // Option 1: Shift history to make space (more complex, not implemented here)
+        // Option 2: Just don't record if history is full (simple)
+        printf("History buffer full. Cannot record more states.\n");
+        return;
+    }
+
+    currentHistoryIdx++;
+    historyStates[currentHistoryIdx] = *state; // Copy the entire current game state
+    historyCount = currentHistoryIdx + 1; // Update total count of states
+    printf("Recorded state %d. Total states: %d\n", currentHistoryIdx, historyCount);
+}
+
+void undoGame(GameState* state) {
+    if (currentHistoryIdx > 0) {
+        currentHistoryIdx--;
+        *state = historyStates[currentHistoryIdx]; // Revert to previous state
+        printf("Undone to state %d.\n", currentHistoryIdx);
+    } else {
+        printf("Cannot undo further.\n");
+    }
+}
+
+void redoGame(GameState* state) {
+    if (currentHistoryIdx < historyCount - 1) {
+        currentHistoryIdx++;
+        *state = historyStates[currentHistoryIdx]; // Re-apply next state
+        printf("Redone to state %d.\n", currentHistoryIdx);
+    } else {
+        printf("Cannot redo further.\n");
+    }
+}
+/* --- END NEW UNDO/REDO FUNCTIONS --- */
+
+
 int main() {
 
     initGameState(&gameState);
@@ -141,48 +186,39 @@ int main() {
     }
     printf("Program started successfully\n");
 
-    /*==========Initialize Variables (some moved to app_globals.h/main.c global defs)==========*/
-    // bool mouseActions[2] = {false, false}; // Now part of GameState struct
-    // bool pieceActions[2] = {false, false}; // Now part of GameState struct
-    // bool blackTurn = false; // Now part of GameState struct
+    // --- Record initial game state ---
+    recordGameState(&gameState); // Capture the initial board state
+    // --- End record initial game state ---
 
     SDL_Event event;
     SDL_Texture *pieceTextures[2][7];
-    // Vector2f selectedSquare = createVector(-1.0f, -1.0f); // Now part of GameState struct
-    // Vector2f kingsPositions[2]; // Now part of GameState struct
-    // Vector2f lastDoublePushPawn = createVector(-1.0f, -1.0f); // Now part of GameState struct
     SDL_Rect pieceTextureCoordinates = {0, 0, 60, 60};
     int mouseX, mouseY;
 
-    //========== Initialize values ==========//
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
     placePieces(gameState.board, input);
-    findKings(gameState.board, gameState.kingsPositions); // Initialize kings positions (now part of gameState)
+    findKings(gameState.board, gameState.kingsPositions);
 
     bool inMenu = true;
-
     while (inMenu) {
         SDL_Event menuEvent;
         while (SDL_PollEvent(&menuEvent)) {
             if (menuEvent.type == SDL_QUIT) {
-                gameState.gameRunning = false; // Use gameState.gameRunning
+                gameState.gameRunning = false;
                 inMenu = false;
             } else if (menuEvent.type == SDL_MOUSEBUTTONDOWN) {
                 int x = menuEvent.button.x;
                 int y = menuEvent.button.y;
 
-                // Example button position and size (adjust as needed)
                 if (x >= 400 && x <= 700 && y >= 300 && y <= 370) {
                     inMenu = false; // Start game
                 }
             }
         }
 
-        // Render Menu
-        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255); // dark background
+        SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
-
         renderText(renderer, "Chess Game", (SDL_Color){255, 255, 255, 255}, 500, 150);
         SDL_Rect startButton = {450, 300, 200, 70};
         SDL_SetRenderDrawColor(renderer, 0, 100, 0, 255);
@@ -194,11 +230,10 @@ int main() {
     lastTick = SDL_GetPerformanceCounter();
     currentTick = lastTick;
 
-    while (gameState.gameRunning) { // Use gameState.gameRunning
-        //========== Find time variables ==========//
+    while (gameState.gameRunning) {
         lastTick = currentTick;
 
-        if (gameState.blackTurn) { // Use gameState.blackTurn
+        if (gameState.blackTurn) {
             blackTimeMs -= deltaTime;
             if (blackTimeMs < 0) {
                 blackTimeMs = 0;
@@ -210,16 +245,17 @@ int main() {
             }
         }
 
-        //========== Events and movements ==========//
         getEvents(event, &gameState, &moveHistoryScrollOffset);
         SDL_GetMouseState(&mouseX, &mouseY);
 
-        // --- CORRECTED SAVE/LOAD BUTTON LOGIC (TRIGGERING THE PROMPT) ---
+        // Define positions for your buttons
         SDL_Rect saveButton = {boardWidth + 10, screenHeight - 140, 130, 40};
         SDL_Rect loadButton = {boardWidth + 160, screenHeight - 140, 130, 40};
+        SDL_Rect undoButton = {boardWidth + 10, screenHeight - 90, 130, 40}; // Example position
+        SDL_Rect redoButton = {boardWidth + 160, screenHeight - 90, 130, 40}; // Example position
 
-        if (gameState.mouseActions[0]) { // Check for a left mouse button down event
-            // Only process button clicks if not in a prompt state
+
+        if (gameState.mouseActions[0]) {
             if (currentScreenState == GAME_STATE_PLAYING) {
                 if (mouseX >= saveButton.x && mouseX <= saveButton.x + saveButton.w &&
                     mouseY >= saveButton.y && mouseY <= saveButton.y + saveButton.h) {
@@ -227,7 +263,7 @@ int main() {
                     currentScreenState = GAME_STATE_PROMPT_FILENAME;
                     currentPromptAction = PROMPT_ACTION_SAVE;
                     SDL_StartTextInput();
-                    inputFileNameBuffer[0] = '\0'; // Clear buffer
+                    inputFileNameBuffer[0] = '\0';
                     textInputActive = SDL_TRUE;
                 }
                 else if (mouseX >= loadButton.x && mouseX <= loadButton.x + loadButton.w &&
@@ -236,36 +272,42 @@ int main() {
                     currentScreenState = GAME_STATE_PROMPT_FILENAME;
                     currentPromptAction = PROMPT_ACTION_LOAD;
                     SDL_StartTextInput();
-                    inputFileNameBuffer[0] = '\0'; // Clear buffer
+                    inputFileNameBuffer[0] = '\0';
                     textInputActive = SDL_TRUE;
                 }
+                    // --- UNDO/REDO BUTTON CLICK DETECTION ---
+                else if (mouseX >= undoButton.x && mouseX <= undoButton.x + undoButton.w &&
+                         mouseY >= undoButton.y && mouseY <= undoButton.y + undoButton.h) {
+                    printf("Undo button clicked!\n");
+                    undoGame(&gameState);
+                }
+                else if (mouseX >= redoButton.x && mouseX <= redoButton.x + redoButton.w &&
+                         mouseY >= redoButton.y && mouseY <= redoButton.y + redoButton.h) {
+                    printf("Redo button clicked!\n");
+                    redoGame(&gameState);
+                }
+                // --- END UNDO/REDO BUTTON CLICK DETECTION ---
             }
         }
 
-        // --- Only handle board input if in GAME_STATE_PLAYING ---
         if (mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize) && currentScreenState == GAME_STATE_PLAYING) {
             handleMouseInput(&gameState, mouseX, mouseY);
         }
-        // Reset mouseActions flags here, after all event processing for the frame
         gameState.mouseActions[0] = false;
         gameState.mouseActions[1] = false;
 
 
-        //========== Rendering Visuals ==========//
         clear(&renderer);
 
-        // --- CONDITIONAL RENDERING BASED ON currentScreenState ---
         if (currentScreenState == GAME_STATE_PROMPT_FILENAME) {
-            // Dim the background (existing game visuals will be under this)
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150); // Semi-transparent black
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
             SDL_Rect dimmer = {0, 0, screenWidth, screenHeight};
             SDL_RenderFillRect(renderer, &dimmer);
 
-            // Draw a box for the prompt
-            SDL_Rect promptBox = {screenWidth / 2 - 200, screenHeight / 2 - 75, 400, 150}; // Larger box
-            SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Dark grey background for prompt
+            SDL_Rect promptBox = {screenWidth / 2 - 200, screenHeight / 2 - 75, 400, 150};
+            SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
             SDL_RenderFillRect(renderer, &promptBox);
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White border
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
             SDL_RenderDrawRect(renderer, &promptBox);
 
             char promptText[64];
@@ -274,7 +316,7 @@ int main() {
             } else if (currentPromptAction == PROMPT_ACTION_LOAD) {
                 snprintf(promptText, sizeof(promptText), "Enter filename to LOAD:");
             } else {
-                snprintf(promptText, sizeof(promptText), "Enter filename:"); // Fallback
+                snprintf(promptText, sizeof(promptText), "Enter filename:");
             }
             renderText(renderer, promptText, (SDL_Color){255, 255, 255, 255}, promptBox.x + 20, promptBox.y + 10);
 
@@ -284,7 +326,6 @@ int main() {
             renderText(renderer, "Press ESC to cancel", (SDL_Color){150, 150, 150, 255}, promptBox.x + 20, promptBox.y + 110);
 
         } else {
-            // --- EXISTING GAME RENDERING LOGIC (only when not in prompt state) ---
             drawBoard(renderer, squareSize, 0, screenWidth, color_light, color_dark, color_clicked, color_possible, gameState.board);
 
             SDL_Rect sidebar_background = {boardWidth, 0, sidebar1_width + sidebar2_width, screenHeight};
@@ -351,7 +392,7 @@ int main() {
                 }
             }
 
-            // Render Save and Load buttons (only when not in prompt state)
+            // Render Save and Load buttons
             SDL_SetRenderDrawColor(renderer, 0, 150, 0, 255); // Green for save
             SDL_RenderFillRect(renderer, &saveButton);
             renderText(renderer, "Save Game", (SDL_Color){255, 255, 255, 255}, saveButton.x + 10, saveButton.y + 10);
@@ -359,6 +400,16 @@ int main() {
             SDL_SetRenderDrawColor(renderer, 0, 0, 150, 255); // Blue for load
             SDL_RenderFillRect(renderer, &loadButton);
             renderText(renderer, "Load Game", (SDL_Color){255, 255, 255, 255}, loadButton.x + 10, loadButton.y + 10);
+
+            // --- RENDER UNDO/REDO BUTTONS ---
+            SDL_SetRenderDrawColor(renderer, 150, 50, 0, 255); // Orange for undo
+            SDL_RenderFillRect(renderer, &undoButton);
+            renderText(renderer, "Undo", (SDL_Color){255, 255, 255, 255}, undoButton.x + 40, undoButton.y + 10);
+
+            SDL_SetRenderDrawColor(renderer, 0, 150, 150, 255); // Cyan for redo
+            SDL_RenderFillRect(renderer, &redoButton);
+            renderText(renderer, "Redo", (SDL_Color){255, 255, 255, 255}, redoButton.x + 40, redoButton.y + 10);
+            // --- END RENDER UNDO/REDO BUTTONS ---
         }
 
         display(&renderer);
@@ -367,7 +418,6 @@ int main() {
         deltaTime = (double) ((currentTick - lastTick) * 1000 / (double) SDL_GetPerformanceFrequency());
     }
 
-    char *exportString = NULL; // Unused variable
     cleanUp(window);
     printf("Program ended\n");
     return 0;

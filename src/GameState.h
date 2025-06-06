@@ -3,21 +3,19 @@
 #define GAMESTATE_H
 
 #include <stdbool.h>
-#include <SDL2/SDL.h> // Required for SDL_Color if you move colors into GameState
+#include <SDL2/SDL.h>
 #include "util.h" // For Vector2f structure
-#include "Piece.h" // Required for MAX_TOTAL_CAPTURED_PIECES
+#include "Piece.h" // Required for MAX_CAPTURED
+#include "app_globals.h" // <--- ADDED: To get MAX_MOVES and other globals if needed
 
-
-// Define masks and piece types if they are not already globally accessible or in Piece.h
-// If they are in Piece.h, you might want to include Piece.h here, or define them in GameState.h if GameState depends on them
-// For example:
-// #define NONE   0
-// #define PAWN   1
-// ...
-// #define TYPE_MASK 0x7
-// #define COLOR_MASK 0x10
-// #define SELECTED_MASK 0x20
-// #define MOVABLE_MASK 0x40
+// Forward declaration for Move if Events.h includes GameState.h
+// Move struct is defined in Events.h, so we need its definition before using it.
+// To resolve circular dependency or order issues, consider defining Move in a new common_types.h
+// For now, let's assume Events.h is included after GameState.h or its contents are compatible.
+// A safer way would be to move the 'Move' struct definition to app_globals.h or its own common_types.h
+typedef struct {
+    char notation[10];
+} Move; // <--- ADDED: Define Move struct here if it's not globally available before GameState.h
 
 typedef struct {
     // Board state
@@ -41,35 +39,21 @@ typedef struct {
     int blackTimeMs;
 
     // Captured pieces storage
-    // These arrays store the type of piece (PAWN, ROOK, etc.) that has been captured.
-    unsigned char whiteCapturedPieces[MAX_CAPTURED]; // Pieces captured by White (i.e., Black's pieces)
-    int numWhiteCapturedPieces; // Count of pieces captured by White
+    unsigned char whiteCapturedPieces[MAX_CAPTURED];
+    int numWhiteCapturedPieces;
 
-    unsigned char blackCapturedPieces[MAX_CAPTURED]; // Pieces captured by Black (i.e., White's pieces)
-    int numBlackCapturedPieces; // Count of pieces captured by Black
+    unsigned char blackCapturedPieces[MAX_CAPTURED];
+    int numBlackCapturedPieces;
 
-    // You might also consider moving SDL_Color definitions here from main.c if you want them
-    // to be part of the dynamic game state or easily resettable.
-    // SDL_Color color_light;
-    // SDL_Color color_dark;
-    // SDL_Color color_clicked;
-    // SDL_Color color_possible;
+    // --- ADDED: Move History as part of GameState ---
+    Move moveHistory[MAX_MOVES]; // Array to store move notations
+    int moveCount;               // Number of moves currently in history
+    // --- END ADDED ---
 
 } GameState;
 
-/**
- * @brief Initializes the game state with starting values.
- * @param state A pointer to the GameState structure to initialize.
- */
 void initGameState(GameState* state);
-
-/**
- * @brief Resets the game state to its initial configuration (e.g., for a new game).
- * @param state A pointer to the GameState structure to reset.
- */
-void resetGameState(GameState* state); // Optional: for restarting the game
-
-
+void resetGameState(GameState* state);
 void saveGameToFile(GameState* state, const char* filePath);
 void loadGameFromFile(GameState* state, const char* filePath);
 

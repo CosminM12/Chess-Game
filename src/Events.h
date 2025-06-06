@@ -21,7 +21,7 @@ void deselectPiece(GameState* state);
 
 void handleMouseInput(GameState* state, int mouseX, int mouseY);
 
-void addMoveToHistory(int startRow, int startCol, int endRow, int endCol, unsigned char piece);
+void addMoveToHistory(GameState* state, int startRow, int startCol, int endRow, int endCol, unsigned char piece);
 
 
 typedef struct {
