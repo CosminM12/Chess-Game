@@ -120,6 +120,122 @@ void drawEvaluationBar(SDL_Renderer* renderer, int score) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 }
 
+// Function to show pawn promotion menu and get user selection
+unsigned char showPromotionMenu(SDL_Renderer* renderer, SDL_Texture* pieceTextures[2][7], int x, int y, unsigned char color) {
+    // Create a semi-transparent overlay
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180); // Semi-transparent black
+    SDL_Rect overlay = {0, 0, screenWidth, screenHeight};
+    SDL_RenderFillRect(renderer, &overlay);
+    
+    // Create a menu box
+    int menuWidth = 300;
+    int menuHeight = 100;
+    int menuX = (screenWidth - menuWidth) / 2;
+    int menuY = (screenHeight - menuHeight) / 2;
+    
+    // Draw menu background
+    SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255); // Light gray
+    SDL_Rect menuRect = {menuX, menuY, menuWidth, menuHeight};
+    SDL_RenderFillRect(renderer, &menuRect);
+    
+    // Draw menu border
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); // Black
+    SDL_RenderDrawRect(renderer, &menuRect);
+    
+    // Draw menu title
+    TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18);
+    if (font) {
+        SDL_Color textColor = {0, 0, 0, 255}; // Black
+        SDL_Surface* textSurface = TTF_RenderText_Solid(font, "Promote pawn to:", textColor);
+        if (textSurface) {
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if (textTexture) {
+                SDL_Rect textRect = {
+                    menuX + (menuWidth - textSurface->w) / 2,
+                    menuY + 10,
+                    textSurface->w,
+                    textSurface->h
+                };
+                SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
+                SDL_DestroyTexture(textTexture);
+            }
+            SDL_FreeSurface(textSurface);
+        }
+        TTF_CloseFont(font);
+    }
+    
+    // Draw promotion options
+    int pieceSize = 60;
+    int spacing = 10;
+    int startX = menuX + (menuWidth - (4 * pieceSize + 3 * spacing)) / 2;
+    int pieceY = menuY + menuHeight - pieceSize - 10;
+    
+    // Define option rectangles
+    SDL_Rect queenRect = {startX, pieceY, pieceSize, pieceSize};
+    SDL_Rect rookRect = {startX + pieceSize + spacing, pieceY, pieceSize, pieceSize};
+    SDL_Rect bishopRect = {startX + 2 * (pieceSize + spacing), pieceY, pieceSize, pieceSize};
+    SDL_Rect knightRect = {startX + 3 * (pieceSize + spacing), pieceY, pieceSize, pieceSize};
+    
+    // Draw pieces
+    SDL_RenderCopy(renderer, pieceTextures[color >> 4][QUEEN], NULL, &queenRect);
+    SDL_RenderCopy(renderer, pieceTextures[color >> 4][ROOK], NULL, &rookRect);
+    SDL_RenderCopy(renderer, pieceTextures[color >> 4][BISHOP], NULL, &bishopRect);
+    SDL_RenderCopy(renderer, pieceTextures[color >> 4][KNIGHT], NULL, &knightRect);
+    
+    // Draw borders around options
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderDrawRect(renderer, &queenRect);
+    SDL_RenderDrawRect(renderer, &rookRect);
+    SDL_RenderDrawRect(renderer, &bishopRect);
+    SDL_RenderDrawRect(renderer, &knightRect);
+    
+    // Present the menu
+    SDL_RenderPresent(renderer);
+    
+    // Wait for user selection
+    SDL_Event event;
+    bool selected = false;
+    unsigned char selectedPiece = QUEEN | color;
+    
+    while (!selected) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+                int mouseX = event.button.x;
+                int mouseY = event.button.y;
+                
+                if (mouseX >= queenRect.x && mouseX < queenRect.x + queenRect.w &&
+                    mouseY >= queenRect.y && mouseY < queenRect.y + queenRect.h) {
+                    selectedPiece = QUEEN | color;
+                    selected = true;
+                }
+                else if (mouseX >= rookRect.x && mouseX < rookRect.x + rookRect.w &&
+                         mouseY >= rookRect.y && mouseY < rookRect.y + rookRect.h) {
+                    selectedPiece = ROOK | color;
+                    selected = true;
+                }
+                else if (mouseX >= bishopRect.x && mouseX < bishopRect.x + bishopRect.w &&
+                         mouseY >= bishopRect.y && mouseY < bishopRect.y + bishopRect.h) {
+                    selectedPiece = BISHOP | color;
+                    selected = true;
+                }
+                else if (mouseX >= knightRect.x && mouseX < knightRect.x + knightRect.w &&
+                         mouseY >= knightRect.y && mouseY < knightRect.y + knightRect.h) {
+                    selectedPiece = KNIGHT | color;
+                    selected = true;
+                }
+            }
+            else if (event.type == SDL_QUIT) {
+                // Handle quit event
+                selected = true;
+                gameRunning = false;
+            }
+        }
+    }
+    
+    return selectedPiece;
+}
+
 // Function to make the computer move
 void makeComputerMove(unsigned char board[8][8], bool* blackTurn, Vector2f* lastDoublePawn, Vector2f kingsPositions[]) {
     if ((*blackTurn && computerPlaysBlack) || (!*blackTurn && !computerPlaysBlack)) {
@@ -248,6 +364,11 @@ void displayPositionAnalysis(unsigned char board[8][8], bool blackTurn, Vector2f
     }
 }
 
+// Function to get the renderer for external modules
+SDL_Renderer* getMainRenderer() {
+    return renderer;
+}
+
 int main(int argc, char* argv[]) {
     //==========Program Initialization==========//
     bool SDLInit = init();
@@ -288,9 +409,6 @@ int main(int argc, char* argv[]) {
     // Engine variables
     int currentScore = 0;
     
-    // Keyboard state for engine control
-    const Uint8* keyboardState = SDL_GetKeyboardState(NULL);
-
     //==========Initialize values==========//
     loadPieceTextures(pieceTextures, &renderer);
     char input[] = "RNBQKBNR/PPPPPPPP/////pppppppp/rnbqkbnr";
@@ -298,12 +416,6 @@ int main(int argc, char* argv[]) {
     initCastlingRights(board); // Initialize castling rights (sets MODIFIER flags)
     findKings(board, kingsPositions); //Initialize kings positions
     
-    // Print instructions
-    printf("Chess Game with Engine\n");
-    printf("Controls:\n");
-    printf("E - Toggle engine (computer plays black)\n");
-    printf("A - Toggle position analysis\n");
-    printf("S - Show evaluation bar\n");
     
     // Game state variables for check/checkmate/stalemate
     bool isInCheck = false;
@@ -320,29 +432,6 @@ int main(int argc, char* argv[]) {
         getEvents(event, &gameRunning, mouseActions);
         SDL_GetMouseState(&mouseX, &mouseY);
         
-        // Handle keyboard input for engine control
-        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_E]) {
-            if (!keyboardState[SDL_SCANCODE_E]) { // Only toggle once per key press
-                engineEnabled = !engineEnabled;
-                computerPlaysBlack = engineEnabled;
-                printf("Engine %s. Computer plays black: %s\n", 
-                       engineEnabled ? "enabled" : "disabled",
-                       computerPlaysBlack ? "yes" : "no");
-            }
-        }
-        
-        if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_A]) {
-            if (!keyboardState[SDL_SCANCODE_A]) {
-                showAnalysis = !showAnalysis;
-                if (showAnalysis) {
-                    displayPositionAnalysis(board, blackTurn, &lastDoublePushPawn, kingsPositions);
-                }
-                printf("Analysis %s\n", showAnalysis ? "enabled" : "disabled");
-            }
-        }
-        
-        // Update keyboard state for next frame
-        keyboardState = SDL_GetKeyboardState(NULL);
         
         if(mouseInsideBoard(mouseX, mouseY, screenWidth, squareSize)) {
             handleMouseInput(board, mouseX, mouseY, screenWidth, squareSize, mouseActions, pieceActions, &blackTurn, &selectedSquare, &lastDoublePushPawn, kingsPositions);

@@ -5,7 +5,9 @@
 
 #include "Events.h"
 #include "Piece.h"
-
+#include "engine.h"
+#include "main.h"
+#include <stdio.h>
 
 void getEvents(SDL_Event event, bool *gameRunning, bool mouseActions[]) {
     while(SDL_PollEvent(&event)) {
@@ -65,28 +67,51 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
         board[oldY][oldX] &= ~MODIFIER;
     }
     
-    //copy piece to new location (preserve color and type)
-    board[destY][destX] = (board[oldY][oldX] & (TYPE_MASK | COLOR_MASK));
+    // Check for pawn promotion
+    bool isPromotion = (pieceType == PAWN) && (destY == 0 || destY == 7);
+    unsigned char promotedPiece = 0;
     
-    // For KING and ROOK, ensure MODIFIER flag is cleared after copying
-    // This permanently disallows castling with this piece
-    if (pieceType == KING || pieceType == ROOK) {
-        // Clear the MODIFIER flag (set it to 0)
-        board[destY][destX] &= ~MODIFIER;
-    }
-    // For other pieces that use MODIFIER (like pawns), set it
-    else if (pieceType == PAWN) {
-        board[destY][destX] |= MODIFIER;
+    if (isPromotion) {
+        // Get the renderer from the main window
+        SDL_Renderer* renderer = getMainRenderer();
+        
+        // Load piece textures
+        SDL_Texture* pieceTextures[2][7];
+        loadPieceTextures(pieceTextures, &renderer);
+        
+        // Show promotion menu and get selected piece
+        promotedPiece = showPromotionMenu(renderer, pieceTextures, destX, destY, color);
+        
+        // Place the promoted piece
+        board[destY][destX] = promotedPiece;
+    } else {
+        //copy piece to new location (preserve color and type)
+        board[destY][destX] = (board[oldY][oldX] & (TYPE_MASK | COLOR_MASK));
+        
+        // For KING and ROOK, ensure MODIFIER flag is cleared after copying
+        // This permanently disallows castling with this piece
+        if (pieceType == KING || pieceType == ROOK) {
+            // Clear the MODIFIER flag (set it to 0)
+            board[destY][destX] &= ~MODIFIER;
+        }
+        // For other pieces that use MODIFIER (like pawns), set it
+        else if (pieceType == PAWN) {
+            board[destY][destX] |= MODIFIER;
+        }
     }
     
     //---Handle special moves---
     
     // Pawn special moves
-    if(pieceType == PAWN) {
+    if(pieceType == PAWN && !isPromotion) {
         //double pawn push =>  remember for 'En passant'
         if(abs(destY - oldY) == 2) {
-            (*lastDoublePawn).x = destX;
-            (*lastDoublePawn).y = destY;
+            // Store column in x, row in y for consistency with engine.c
+            (*lastDoublePawn).x = destX;  // Column of the pawn
+            (*lastDoublePawn).y = destY;  // Row of the pawn
+            
+            printf("Double pawn push detected: lastDoublePawn set to (%d, %d)\n", 
+                   (int)(*lastDoublePawn).x, (int)(*lastDoublePawn).y);
         }
         else {
             int lastDoubleX = (*lastDoublePawn).x;
@@ -94,6 +119,7 @@ void makeMove(unsigned char board[8][8], int destX, int destY, Vector2f* sourceS
             
             //En passant => delete captured piece
             if(!capture && abs(destX - oldX) == 1) {
+                printf("En passant capture: Removing pawn at (%d, %d)\n", lastDoubleY, lastDoubleX);
                 board[lastDoubleY][lastDoubleX] = 0;
             }
 
@@ -209,7 +235,7 @@ void handleMouseInput(unsigned char board[8][8], int mouseX, int mouseY, int scr
                             Move move = {{squareY, squareX}, {i, j}, board[i][j], false, 0, hasModifier, 0};
                             unsigned char color = (board[squareY][squareX] & COLOR_MASK) >> 4;
                             
-                            if (!isMoveLegal(board, move, color, lastDoublePawn, kingsPositions)) {
+                            if (!isLegalMove(board, move, color, lastDoublePawn, kingsPositions)) {
                                 // Remove the movable flag if the move is illegal
                                 board[i][j] &= ~MOVABLE_MASK;
                             }

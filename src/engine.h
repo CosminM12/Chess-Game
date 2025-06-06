@@ -37,7 +37,7 @@ void generateMoves(unsigned char board[8][8], unsigned char color, MoveList* mov
 void generateLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn, Vector2f kings[]);
 void generatePseudoLegalMoves(unsigned char board[8][8], unsigned char color, MoveList* list, Vector2f* lastDoublePawn);
 bool isMoveLegal(unsigned char board[8][8], Move move, unsigned char color, Vector2f* lastDoublePawn, Vector2f kings[]);
-void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]);
+void engineMakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[], int isRealMove);
 void unmakeMove(unsigned char board[8][8], Move move, Vector2f* lastDoublePawn, Vector2f kings[]);
 bool isKingInCheck(unsigned char board[8][8], Vector2f kingPosition, unsigned char color);
 bool isSquareAttacked(unsigned char board[8][8], Vector2f position, unsigned char attackerColor);

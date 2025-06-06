@@ -2,10 +2,15 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "RenderWindow.h"
+#include "Piece.h"
 
-bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** renderer, int screenWidth, int screenHeight) {
+// Store the renderer as a static variable for access from other modules
+static SDL_Renderer* globalRenderer = NULL;
+
+bool createWindow(const char* p_title, SDL_Window** window, SDL_Renderer** renderer, int screenWidth, int screenHeight) {
     //Create new window
     SDL_DisplayMode screenSize;
     SDL_GetCurrentDisplayMode(0, &screenSize);
@@ -17,9 +22,21 @@ bool createWindow(const char* p_title, SDL_Window** window,SDL_Renderer** render
         return false;
     }
 
-    *renderer = SDL_CreateRenderer(*window, -1, SDL_RENDERER_ACCELERATED && SDL_RENDERER_PRESENTVSYNC);
-
+    *renderer = SDL_CreateRenderer(*window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if(*renderer == NULL) {
+        printf("Renderer failed to init. Error: %s\n", SDL_GetError());
+        return false;
+    }
+    
+    // Store the renderer globally
+    globalRenderer = *renderer;
+    
     return true;
+}
+
+// Function to get the renderer for external use
+SDL_Renderer* getRenderer() {
+    return globalRenderer;
 }
 
 void drawBoard(SDL_Renderer* renderer, int squareSize, int screenWidth, SDL_Color color1, SDL_Color color2, SDL_Color colorClicked, SDL_Color colorPossible, SDL_Color colorRisky, unsigned char board[8][8]) {

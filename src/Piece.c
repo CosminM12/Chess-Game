@@ -329,7 +329,7 @@ void generatePossibleMoves(unsigned char board[8][8], int x, int y, Vector2f *la
                     // Check if there's a pawn next to us and if it made a double move last turn
                     if((board[x][newY] & TYPE_MASK) == PAWN && 
                        opposingColor(board[x][newY], color) &&
-                       lastDoublePawn->x == newY && lastDoublePawn->y == x) {
+                       (*lastDoublePawn).x == newY && (*lastDoublePawn).y == x) {
                         // Mark the square behind the pawn as a valid capture square
                         board[newX][newY] |= MOVABLE_MASK;
                     }
